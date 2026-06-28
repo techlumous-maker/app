@@ -1,0 +1,10 @@
+/* Tiny reset so full-bleed templates aren't boxed in by default margins. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}

@@ -1,4 +1,4 @@
-import { signOut } from "@/app/auth/actions"
+import { signOut } from "@/app/api/auth/actions"
 import { Logo } from "@/components/logo"
 import { MainNav } from "@/components/main-nav"
 import { AccountMenu } from "@/components/account-menu"

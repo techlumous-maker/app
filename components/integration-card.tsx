@@ -12,6 +12,7 @@ interface IntegrationCardProps {
   name: string
   description: string
   status?: IntegrationStatus
+  action?: () => void | Promise<void>
   onConnect?: () => void
   onDisconnect?: () => void
   onReconnect?: () => void
@@ -49,19 +50,32 @@ export function IntegrationCard({
   name,
   description,
   status = "none",
+  action,
   onConnect,
   onDisconnect,
   onReconnect,
   className,
 }: IntegrationCardProps) {
   const badge = STATUS_BADGE[status]
-  const action = ACTION[status]
+  const cta = ACTION[status]
   const handler =
     status === "connected"
       ? onDisconnect
       : status === "disconnected"
         ? onReconnect
         : onConnect
+
+  const button = (
+    <ArrowButton
+      type={action ? "submit" : undefined}
+      variant={cta.variant}
+      badgeClassName={cta.badge}
+      onClick={action ? undefined : handler}
+      className={cn(cta.extra)}
+    >
+      {cta.label}
+    </ArrowButton>
+  )
 
   return (
     <Card
@@ -94,16 +108,7 @@ export function IntegrationCard({
 
       <Separator />
 
-      <div>
-        <ArrowButton
-          variant={action.variant}
-          badgeClassName={action.badge}
-          onClick={handler}
-          className={cn(action.extra)}
-        >
-          {action.label}
-        </ArrowButton>
-      </div>
+      <div>{action ? <form action={action}>{button}</form> : button}</div>
     </Card>
   )
 }
