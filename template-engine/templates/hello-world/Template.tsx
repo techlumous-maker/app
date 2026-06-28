@@ -1,10 +1,5 @@
 import type { HelloWorldContent } from "./schema"
 
-/**
- * Pure function: (content) -> UI. No data fetching, no app imports.
- * Uses inline styles only, so the rendered output is fully self-contained
- * and never leaks CSS into (or depends on CSS from) the studio app.
- */
 export function Template({ content }: { content: HelloWorldContent }) {
   return (
     <main

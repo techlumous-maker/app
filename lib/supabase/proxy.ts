@@ -39,9 +39,7 @@ export async function updateSession(request: NextRequest) {
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
-    // The renderer is public: it serves template output for iframe previews
-    // and (later) published sites, so it must not require a session.
-    !request.nextUrl.pathname.startsWith("/render")
+    !request.nextUrl.pathname.startsWith("/api/auth")
   ) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone()

@@ -33,7 +33,7 @@ export function LoginForm({
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/api/auth/supabase/callback`,
       },
     })
 
@@ -55,7 +55,7 @@ export function LoginForm({
       provider: "google",
       options: {
         skipBrowserRedirect: false,
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/api/auth/supabase/callback`,
       },
     })
 
