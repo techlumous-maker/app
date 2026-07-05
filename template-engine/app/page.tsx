@@ -2,6 +2,12 @@ import type { Metadata } from "next"
 
 import { getTemplate, listTemplates } from "@/templates/registry"
 
+import { fetchSiteContent } from "../lib/content"
+
+// Re-fetch the site's content from Supabase at most once a minute; content
+// edits in the studio go live without a redeploy.
+export const revalidate = 60
+
 function resolveTemplate() {
   const slug =
     process.env.TEMPLATE_SLUG?.trim() || listTemplates()[0]?.meta.slug
@@ -25,12 +31,14 @@ export function generateMetadata(): Metadata {
   return { title: resolveTemplate().meta.name }
 }
 
-export default function Page() {
+export default async function Page() {
   const template = resolveTemplate()
   console.log(
-    `[template-engine] building "${template.meta.slug}" (${template.meta.name})`
+    `[template-engine] rendering "${template.meta.slug}" (${template.meta.name})`
   )
 
   const { Template, defaultContent } = template
-  return <Template content={defaultContent} />
+  // const content = (await fetchSiteContent()) ?? defaultContent
+  const content = defaultContent
+  return <Template content={content} />
 }

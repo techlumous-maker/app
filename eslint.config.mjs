@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The nested template-engine app's build artifacts:
+    "template-engine/.next/**",
+    "template-engine/out/**",
+    "template-engine/next-env.d.ts",
   ]),
 ]);
 

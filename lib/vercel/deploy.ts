@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto"
 
-// Standalone Vercel file-upload deployment. No env/vault/db coupling — every
-// input is passed in. Mirrors docs/vercel-deploy-files.md:
+// Standalone Vercel file-upload deployment of Next.js source — Vercel runs
+// the build. No env/vault/db coupling — every input is passed in. Mirrors
+// docs/vercel-deploy-files.md:
 //   1. upload each file (SHA + bytes)  2. create deployment  3. poll readyState
 
 const API = "https://api.vercel.com"
@@ -24,6 +25,8 @@ export interface DeployFilesParams {
   teamId?: string
   /** "production" for a production deploy; omit for a preview */
   target?: "production"
+  /** Env vars applied to the deployment (set as both runtime and build env) */
+  env?: Record<string, string>
   /** Give up polling after this long (default 10 min) */
   timeoutMs?: number
   /** Delay between status polls (default 5s) */
@@ -111,7 +114,8 @@ async function createDeployment(
     body: JSON.stringify({
       name: params.name,
       files,
-      projectSettings: { framework: null, outputDirectory: "." },
+      projectSettings: { framework: "nextjs" },
+      ...(params.env && { env: params.env, build: { env: params.env } }),
       target: params.target,
     }),
   })

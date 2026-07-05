@@ -1,6 +1,6 @@
 import type { TemplateModule } from "@/templates/types"
 
-import { helloWorld } from "./hello-world"
+import { template as helloWorld } from "./hello-world"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTemplateModule = TemplateModule<any>

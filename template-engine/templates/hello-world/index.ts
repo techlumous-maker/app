@@ -4,7 +4,9 @@ import { meta } from "./meta"
 import { defaultContent, type HelloWorldContent } from "./schema"
 import { Template } from "./Template"
 
-export const helloWorld: TemplateModule<HelloWorldContent> = {
+// Every template exports `template` — the uniform name lets the deploy
+// pipeline generate a single-template registry from just the slug.
+export const template: TemplateModule<HelloWorldContent> = {
   meta,
   defaultContent,
   Template,
