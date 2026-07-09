@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 
 import { TemplatePreview } from "@/components/template-preview"
 import { createClient } from "@/lib/supabase/server"
-import { getTemplate, listTemplates } from "@/templates/registry"
+import { getTemplate } from "@/services/template"
 
 export default async function Page({
   searchParams,
@@ -13,23 +13,28 @@ export default async function Page({
   const { data } = await supabase.auth.getClaims()
   if (!data?.claims) redirect("/login")
 
+  const notFound = (slug?: string) => (
+    <div className="page">
+      <p className="text-card-foreground/60">
+        {slug ? `No template found for "${slug}"` : "Please select a template."}
+      </p>
+    </div>
+  )
+
   const { template: requested } = await searchParams
-  const fallback = listTemplates()[0]
-  const template = (requested && getTemplate(requested)) || fallback
+  const slug = requested
+
+  if (!slug) return notFound()
+
+  const template = await getTemplate(slug)
 
   if (!template) {
-    return (
-      <div className="page">
-        <h1>Preview</h1>
-        <p className="text-card-foreground/60">No templates registered yet.</p>
-      </div>
-    )
+    return notFound(slug)
   }
 
   return (
     <div className="page">
-      <h1>Preview</h1>
-      <TemplatePreview slug={template.meta.slug} name={template.meta.name} />
+      <TemplatePreview slug={template.slug} name={template.name} />
     </div>
   )
 }
