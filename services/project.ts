@@ -73,7 +73,7 @@ export async function updateProject(
     .select()
     .single()
 
-  if (error) throw new Error(`Failed to update project: ${error.message}`)
+  if (error) throw new Error(`${error.message}`)
 
   return data
 }

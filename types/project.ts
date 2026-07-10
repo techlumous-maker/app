@@ -7,3 +7,8 @@ export type CreateProjectState = {
 export const initialCreateProjectState: CreateProjectState = {
   status: "idle",
 }
+
+export type SelectTemplateState = {
+  status: "success" | "error"
+  message: string
+}

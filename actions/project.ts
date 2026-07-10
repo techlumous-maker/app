@@ -1,14 +1,17 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
-import { createProject } from "@/services/project"
+import { createProject, getProject, updateProject } from "@/services/project"
 import { insertProjectSchema } from "@/services/project.schema"
-import { CreateProjectState } from "@/types/project"
+import { CreateProjectState, SelectTemplateState } from "@/types/project"
 
-// Server action invoked on project-creation form submit. Validates the user
-// input against insertProjectSchema, creates the row, and revalidates the
-// projects page so the new project shows up without a manual refresh.
+const selectTemplateSchema = z.object({
+  projectId: z.uuid(),
+  templateId: z.uuid(),
+})
+
 export async function createProjectAction(
   _prevState: CreateProjectState,
   formData: FormData
@@ -46,6 +49,43 @@ export async function createProjectAction(
     return {
       status: "error",
       message: err instanceof Error ? err.message : "Failed to create project",
+    }
+  }
+}
+
+export async function selectTemplateAction(
+  projectId: string,
+  templateId: string
+): Promise<SelectTemplateState> {
+  const parsed = selectTemplateSchema.safeParse({ projectId, templateId })
+  if (!parsed.success) {
+    return { status: "error", message: "Invalid project or template" }
+  }
+
+  try {
+    const project = await getProject(parsed.data.projectId)
+    if (!project) {
+      return { status: "error", message: "Project not found" }
+    }
+
+    if (project.template_id) {
+      return {
+        status: "error",
+        message: "Template already selected for this project",
+      }
+    }
+
+    await updateProject(parsed.data.projectId, {
+      template_id: parsed.data.templateId,
+    })
+
+    revalidatePath("/")
+    return { status: "success", message: "Template selected" }
+  } catch (err) {
+    console.error("Failed to select template", err)
+    return {
+      status: "error",
+      message: "Failed to select template",
     }
   }
 }

@@ -48,7 +48,7 @@ export function Logo({ className, size = 40, showName = false }: LogoProps) {
       <LogoLight size={size} className={cn("dark:hidden", className)} />
       <LogoDark size={size} className={cn("hidden dark:block", className)} />
       {showName && (
-        <span className="dark:font-base hidden font-heading text-xl font-light tracking-tight tab:inline-block">
+        <span className="dark:font-base hidden cursor-default font-heading text-xl font-light tracking-tight select-none hover:cursor-default tab:inline-block">
           Techlumous
         </span>
       )}

@@ -54,37 +54,41 @@ function Button({
   )
 }
 
-/**
- * A pill-shaped button with a trailing arrow inside a circular badge.
- * Renders as a <button> by default; pass `render={<a … />}` for links.
- * Control the badge circle with `badgeClassName` (background / text color).
- */
-function ArrowButton({
+function IconButton({
   className,
-  badgeClassName,
   variant = "default",
-  size = "lg",
+  size = "default",
+  icon: Icon = ArrowUpRightIcon,
+  iconPosition = "end",
+  iconClassName,
   children,
   ...props
 }: ButtonPrimitive.Props &
-  VariantProps<typeof buttonVariants> & { badgeClassName?: string }) {
+  VariantProps<typeof buttonVariants> & {
+    icon?: React.ElementType
+    iconPosition?: "start" | "end"
+    iconClassName?: string
+  }) {
+  const iconElement = (
+    <Icon
+      data-icon={iconPosition === "start" ? "inline-start" : "inline-end"}
+      className={iconClassName}
+    />
+  )
+
   return (
     <Button
-      data-slot="arrow-button"
+      data-slot="icon-button"
       variant={variant}
       size={size}
-      className={cn(
-        "group/arrow gap-2 rounded-full py-4 pr-2 pl-3 text-sm",
-        className
-      )}
+      className={cn("flex w-min gap-2 px-2", className)}
       {...props}
     >
+      {iconPosition === "start" && iconElement}
       {children}
-      <span className={cn("inline-block rounded-full p-1", badgeClassName)}>
-        <ArrowUpRightIcon className="size-3 transition-all group-hover/arrow:rotate-45" />
-      </span>
+      {iconPosition === "end" && iconElement}
     </Button>
   )
 }
 
-export { Button, ArrowButton, buttonVariants }
+export { Button, IconButton, buttonVariants }

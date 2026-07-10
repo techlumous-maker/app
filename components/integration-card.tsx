@@ -5,7 +5,7 @@ import { useActionState, useEffect } from "react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { ArrowButton } from "@/components/ui/button"
+import { IconButton } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
@@ -36,19 +36,16 @@ const ACTION = {
   connected: {
     label: "Disconnect",
     variant: "destructive",
-    badge: "bg-background text-foreground",
     extra: "text-foreground",
   },
   none: {
     label: "Connect",
     variant: "default",
-    badge: "bg-primary-foreground text-black",
     extra: "",
   },
   disconnected: {
     label: "Reconnect",
     variant: "secondary",
-    badge: "bg-secondary-foreground/10",
     extra: "",
   },
 } as const
@@ -88,16 +85,19 @@ export function IntegrationCard({
   }, [isPending, state.error])
 
   const button = (
-    <ArrowButton
+    <IconButton
       type={action ? "submit" : undefined}
       variant={cta.variant}
-      badgeClassName={cta.badge}
+      size="lg"
       onClick={action ? undefined : handler}
       disabled={action ? isPending : undefined}
-      className={cn(cta.extra)}
+      className={cn(
+        cta.extra,
+        "rounded-full pl-3 [&>svg]:transition-transform hover:[&>svg]:rotate-45"
+      )}
     >
       {cta.label}
-    </ArrowButton>
+    </IconButton>
   )
 
   return (

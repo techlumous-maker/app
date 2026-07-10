@@ -9,11 +9,16 @@ function formatCategory(category: string) {
   return category.charAt(0).toUpperCase() + category.slice(1)
 }
 
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>
+}) {
   const supabase = await createClient()
   const { data } = await supabase.auth.getClaims()
   if (!data?.claims) redirect("/login")
 
+  const { project: projectId } = await searchParams
   const templates = await listTemplates()
 
   return (
@@ -29,10 +34,12 @@ export default async function Page() {
             {templates.map((template) => (
               <TemplateCard
                 key={template.id}
+                templateId={template.id}
                 title={template.name}
                 type={formatCategory(template.category)}
                 image={template.thumbnail}
                 slug={template.slug}
+                projectId={projectId}
               />
             ))}
           </div>

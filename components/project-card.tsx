@@ -1,12 +1,14 @@
-import { TrashIcon } from "@phosphor-icons/react/ssr"
+import Link from "next/link"
+import { TrashSimpleIcon } from "@phosphor-icons/react/ssr"
 
-import { ArrowButton, Button } from "@/components/ui/button"
+import { Button, IconButton } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 type ProjectStatus = "live" | "building" | "offline"
 
 interface ProjectCardProps {
+  projectId: string
   name: string
   url: string
   image: string
@@ -16,6 +18,7 @@ interface ProjectCardProps {
   vercelUrl: string
   onDelete?: () => void
   className?: string
+  isTemplateSelected?: boolean
 }
 
 const STATUS: Record<ProjectStatus, { label: string; dot: string }> = {
@@ -40,6 +43,7 @@ function InfoItem({
 }
 
 export function ProjectCard({
+  projectId,
   name,
   url,
   image,
@@ -49,6 +53,7 @@ export function ProjectCard({
   vercelUrl,
   onDelete,
   className,
+  isTemplateSelected,
 }: ProjectCardProps) {
   const statusConfig = STATUS[status]
 
@@ -64,13 +69,13 @@ export function ProjectCard({
         <img src={image} alt={name} className="size-full object-cover" />
 
         <Button
-          variant="destructive"
+          variant="ghost"
           size="icon"
           aria-label={`Delete ${name}`}
           onClick={onDelete}
-          className="absolute top-3 right-3 rounded-full lg:hidden"
+          className="absolute top-4 right-4 hidden rounded-full text-foreground/40! hover:bg-destructive/10! hover:text-destructive! lg:flex"
         >
-          <TrashIcon />
+          <TrashSimpleIcon />
         </Button>
       </div>
 
@@ -88,34 +93,45 @@ export function ProjectCard({
         </div>
 
         <div className="flex gap-3">
-          <ArrowButton
+          <IconButton
             render={
-              <a href={websiteUrl} target="_blank" rel="noopener noreferrer" />
+              isTemplateSelected ? (
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              ) : (
+                <Link href={`/templates?project=${projectId}`} />
+              )
             }
             variant="default"
-            badgeClassName="bg-primary-foreground text-black"
+            size="lg"
+            className="rounded-full pl-3 [&>svg]:transition-transform hover:[&>svg]:rotate-45"
           >
-            Visit Website
-          </ArrowButton>
-          <ArrowButton
+            {isTemplateSelected ? "Visit Website" : "Select Template"}
+          </IconButton>
+          <IconButton
             render={
               <a href={vercelUrl} target="_blank" rel="noopener noreferrer" />
             }
             variant="ghost"
+            size="lg"
+            className="rounded-full pl-3 [&>svg]:transition-transform hover:[&>svg]:rotate-45"
           >
             Vercel Project
-          </ArrowButton>
+          </IconButton>
         </div>
       </div>
 
       <Button
-        variant="destructive"
+        variant="ghost"
         size="icon"
         aria-label={`Delete ${name}`}
         onClick={onDelete}
-        className="absolute top-4 right-4 hidden rounded-full lg:flex"
+        className="absolute top-2 right-2 hidden rounded-full text-foreground/40! hover:bg-destructive/10! hover:text-destructive! lg:flex"
       >
-        <TrashIcon />
+        <TrashSimpleIcon />
       </Button>
     </Card>
   )

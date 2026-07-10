@@ -41,11 +41,12 @@ export default async function Page() {
 
   const projects = await listProjects()
 
-  console.log("projects : ", projects)
-
   return (
     <div className="page">
-      <h1 className="max-sm:pl-2">Projects</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="max-sm:pl-2">Projects</h1>
+        {projects.length > 0 && <CreateProjectDrawer buttonVariant="icon" />}
+      </div>
       {projects.length === 0 ? (
         <div className="mt-8 flex flex-col items-center justify-center gap-10 overflow-x-clip">
           <div className="isolate grid w-full max-w-md grid-cols-1 pt-20">
@@ -71,6 +72,8 @@ export default async function Page() {
           {projects.map((project, index) => (
             <ProjectCard
               key={project.id}
+              projectId={project.id}
+              isTemplateSelected={!!project.template_id}
               image={STATIC_IMAGES[index % STATIC_IMAGES.length]}
               name={project.name}
               url={
