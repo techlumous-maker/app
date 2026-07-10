@@ -85,7 +85,7 @@ the browser):
 <IntegrationCard name="Vercel" status="none" action={connectVercel} />
 ```
 
-### 2. Start the handshake — `connectVercel()` (`app/api/auth/vercel/actions.ts`)
+### 2. Start the handshake — `connectVercel()` (`actions/vercel.ts`)
 
 1. Require an authenticated user (`supabase.auth.getClaims()`), else `redirect("/login")`.
 2. Read `VERCEL_INTEGRATION_SLUG`; if missing, throw (surfaces as a 500).

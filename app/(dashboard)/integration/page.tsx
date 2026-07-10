@@ -1,5 +1,5 @@
-import { connectVercel } from "@/app/api/auth/vercel/actions"
-import { disconnectIntegration } from "./actions"
+import { connectVercel } from "@/actions/vercel"
+import { disconnectIntegration } from "@/actions/integration"
 import { IntegrationCard } from "@/components/integration-card"
 import { createClient } from "@/lib/supabase/server"
 import { getUserIntegrationByProvider } from "@/services/user-integration"

@@ -1,4 +1,3 @@
-import { signOut } from "@/app/api/auth/actions"
 import { Logo } from "@/components/logo"
 import { MainNav } from "@/components/main-nav"
 import { AccountMenu } from "@/components/account-menu"
@@ -12,7 +11,7 @@ export function Header() {
           <MainNav />
         </div>
         <div className="ml-auto">
-          <AccountMenu onLogout={signOut} />
+          <AccountMenu />
         </div>
       </div>
     </header>

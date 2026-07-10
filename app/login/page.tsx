@@ -1,11 +1,16 @@
-"use client"
-
 import Image from "next/image"
 
 import { LoginForm } from "@/components/login-form"
 import { Logo } from "@/components/logo"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const supabase = await createClient()
+  const { data } = await supabase.auth.getClaims()
+
+  if (data?.claims) redirect("/")
+
   return (
     <div className="grid min-h-svh p-2 lg:grid-cols-2">
       <div className="relative hidden overflow-hidden rounded-lg bg-muted lg:block">

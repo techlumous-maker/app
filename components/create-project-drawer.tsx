@@ -3,7 +3,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 
-import { createProjectAction } from "@/app/(dashboard)/actions"
+import { createProjectAction } from "@/actions/project"
 import {
   initialCreateProjectState,
   type CreateProjectState,
