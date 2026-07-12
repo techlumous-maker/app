@@ -1,71 +1,92 @@
-export interface LumousNavLink {
-  label: string
-  href: string
-}
+import { z } from "zod"
 
-export interface LumousFeatureMeta {
-  label: string
-  value: string
-}
+// The Zod schema is the single source of truth: it drives both the content type
+// (via z.infer) and the generated edit form. `.meta()` carries UI intent — the
+// schema-form engine reads `label` / `widget` / `format` to pick a widget,
+// falling back to structural defaults when they are absent.
 
-export interface LumousFeature {
-  title: string
-  body: string
-  meta: LumousFeatureMeta[]
-}
+const navLink = z.object({
+  label: z.string().meta({ label: "Label" }),
+  href: z.string().meta({ label: "URL", format: "url" }),
+})
 
-export interface LumousFooterLink {
-  label: string
-  href: string
-}
+const featureMeta = z.object({
+  label: z.string().meta({ label: "Label" }),
+  value: z.string().meta({ label: "Value" }),
+})
 
-export interface LumousFooterColumn {
-  title: string
-  items: LumousFooterLink[]
-}
+const feature = z.object({
+  title: z.string().meta({ label: "Title" }),
+  body: z.string().meta({ label: "Body", widget: "textarea" }),
+  meta: z.array(featureMeta).meta({ label: "Meta" }),
+})
 
-/** Hero badge sub-labels — up to 3 short strings, rendered joined by "·". */
-export type LumousBadgeMeta =
-  | [string]
-  | [string, string]
-  | [string, string, string]
+const footerLink = z.object({
+  label: z.string().meta({ label: "Label" }),
+  href: z.string().meta({ label: "URL", format: "url" }),
+})
 
-export interface LumousMarkOneContent {
-  brand: string
-  nav: LumousNavLink[]
-  hero: {
-    eyebrow: string
-    headlineTop: string
-    headlineMid: string
-    headlineHighlight: string
-    headlineEnd: string
-    badgeText: string
-    badgeMeta: LumousBadgeMeta
-  }
-  features: {
-    eyebrow: string
-    items: LumousFeature[]
-  }
-  about: {
-    eyebrow: string
-    statement: string
-    statementMuted: string
-    imageUrl: string
-    imageAlt: string
-  }
-  contact: {
-    eyebrow: string
-    headline: string
-    href: string
-    contactLine: string
-  }
-  footer: {
-    wordmark: string
-    columns: LumousFooterColumn[]
-    copyright: string
-    tagline: string
-  }
-}
+const footerColumn = z.object({
+  title: z.string().meta({ label: "Title" }),
+  items: z.array(footerLink).meta({ label: "Items" }),
+})
+
+export const contentSchema = z.object({
+  brand: z.string().meta({ label: "Brand" }),
+  nav: z.array(navLink).meta({ label: "Nav links" }),
+  hero: z
+    .object({
+      eyebrow: z.string().meta({ label: "Eyebrow" }),
+      headlineTop: z.string().meta({ label: "Headline — top" }),
+      headlineMid: z.string().meta({ label: "Headline — mid" }),
+      headlineHighlight: z.string().meta({ label: "Headline — highlight" }),
+      headlineEnd: z.string().meta({ label: "Headline — end" }),
+      badgeText: z.string().meta({ label: "Badge text" }),
+      // Up to 3 short strings, rendered joined by "·". Modeled as a bounded
+      // array (not a tuple union) so the form renders it as an add/remove list.
+      badgeMeta: z
+        .array(z.string())
+        .min(1)
+        .max(3)
+        .meta({ label: "Badge meta" }),
+    })
+    .meta({ label: "Hero" }),
+  features: z
+    .object({
+      eyebrow: z.string().meta({ label: "Eyebrow" }),
+      items: z.array(feature).meta({ label: "Items" }),
+    })
+    .meta({ label: "Features" }),
+  about: z
+    .object({
+      eyebrow: z.string().meta({ label: "Eyebrow" }),
+      statement: z.string().meta({ label: "Statement", widget: "textarea" }),
+      statementMuted: z
+        .string()
+        .meta({ label: "Statement (muted)", widget: "textarea" }),
+      imageUrl: z.string().meta({ label: "Image URL", format: "url" }),
+      imageAlt: z.string().meta({ label: "Image alt" }),
+    })
+    .meta({ label: "About" }),
+  contact: z
+    .object({
+      eyebrow: z.string().meta({ label: "Eyebrow" }),
+      headline: z.string().meta({ label: "Headline" }),
+      href: z.string().meta({ label: "URL", format: "url" }),
+      contactLine: z.string().meta({ label: "Contact line" }),
+    })
+    .meta({ label: "Contact" }),
+  footer: z
+    .object({
+      wordmark: z.string().meta({ label: "Wordmark" }),
+      columns: z.array(footerColumn).meta({ label: "Columns" }),
+      copyright: z.string().meta({ label: "Copyright" }),
+      tagline: z.string().meta({ label: "Tagline" }),
+    })
+    .meta({ label: "Footer" }),
+})
+
+export type LumousMarkOneContent = z.infer<typeof contentSchema>
 
 export const defaultContent: LumousMarkOneContent = {
   brand: "Lumous Mark",
