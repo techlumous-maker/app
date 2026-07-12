@@ -23,6 +23,109 @@ interface TemplatePreviewProps {
   className?: string
 }
 
+/**
+ * The editor canvas uses the same standalone renderer as the windowed preview,
+ * but deliberately leaves out all preview chrome so the template meets the
+ * workspace with a clean, hard edge.
+ */
+export function BareTemplatePreview({
+  slug,
+  name,
+  className,
+}: TemplatePreviewProps) {
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  const resizeFrame = useCallback(() => {
+    const frame = iframeRef.current
+    const doc = frame?.contentDocument
+    if (!frame || !doc?.body) return
+
+    // Measure from the editor's available viewport height so template styles
+    // such as min-height: 100vh do not create a height feedback loop.
+    const minimumHeight = Math.max(window.innerHeight - 96, 320)
+    frame.style.height = `${minimumHeight}px`
+
+    const contentHeight = Math.max(
+      doc.documentElement.scrollHeight,
+      doc.documentElement.offsetHeight,
+      doc.body.scrollHeight,
+      doc.body.offsetHeight,
+      minimumHeight
+    )
+
+    frame.style.height = `${contentHeight}px`
+  }, [])
+
+  const wireFrameHeight = useCallback(
+    (event: React.SyntheticEvent<HTMLIFrameElement>) => {
+      cleanupRef.current?.()
+
+      const frame = event.currentTarget
+      const doc = frame.contentDocument
+      if (!doc?.body) return
+
+      doc.documentElement.style.overflow = "hidden"
+      doc.body.style.overflow = "hidden"
+
+      let disposed = false
+      let animationFrame: number | null = null
+      const scheduleResize = () => {
+        if (disposed || animationFrame !== null) return
+        animationFrame = window.requestAnimationFrame(() => {
+          animationFrame = null
+          resizeFrame()
+        })
+      }
+
+      const mutationObserver = new MutationObserver(scheduleResize)
+      mutationObserver.observe(doc.body, {
+        attributes: true,
+        characterData: true,
+        childList: true,
+        subtree: true,
+      })
+
+      doc.addEventListener("load", scheduleResize, true)
+      doc.addEventListener("transitionend", scheduleResize, true)
+      window.addEventListener("resize", scheduleResize)
+      void doc.fonts.ready.then(scheduleResize)
+
+      resizeFrame()
+
+      cleanupRef.current = () => {
+        disposed = true
+        mutationObserver.disconnect()
+        doc.removeEventListener("load", scheduleResize, true)
+        doc.removeEventListener("transitionend", scheduleResize, true)
+        window.removeEventListener("resize", scheduleResize)
+        if (animationFrame !== null) {
+          window.cancelAnimationFrame(animationFrame)
+        }
+      }
+    },
+    [resizeFrame]
+  )
+
+  useEffect(() => {
+    return () => cleanupRef.current?.()
+  }, [])
+
+  return (
+    <iframe
+      ref={iframeRef}
+      title={`${name} live preview`}
+      src={`/render/${slug}`}
+      scrolling="no"
+      onLoad={wireFrameHeight}
+      className={cn(
+        "block min-h-[calc(100dvh-6rem)] w-full border-0 bg-white",
+        className
+      )}
+    />
+  )
+}
+
 const VIEWPORTS = {
   desktop: { label: "Desktop", width: "100%", icon: DesktopIcon },
   mobile: { label: "Mobile", width: "390px", icon: DeviceMobileIcon },
@@ -208,10 +311,9 @@ export function TemplatePreview({
     }
   }, [unlockScroll])
 
-  // /render is same-origin, so the preview can reach into the template page:
-  // forward Escape for exiting full screen, and hide the template's own
-  // scrollbar (scrolling still works) so it runs edge to edge like a mac
-  // window instead of showing a Windows-style scrollbar strip.
+  // /render is same-origin, so the preview can reach into the template page
+  // and forward Escape for exiting full screen. Its scrollbar inherits the
+  // app-wide styling from globals.css.
   const wireIframeDocument = (
     event: React.SyntheticEvent<HTMLIFrameElement>
   ) => {
@@ -222,17 +324,9 @@ export function TemplatePreview({
           exitFullscreen()
         }
       })
-      const doc = frame.contentDocument
-      if (doc?.head && !doc.getElementById("studio-preview-chrome")) {
-        const style = doc.createElement("style")
-        style.id = "studio-preview-chrome"
-        style.textContent =
-          "html{scrollbar-width:none}html::-webkit-scrollbar{display:none}"
-        doc.head.appendChild(style)
-      }
     } catch {
       // cross-origin content — Escape then only works when the studio has
-      // focus, and the template keeps its own scrollbar
+      // focus
     }
   }
 
