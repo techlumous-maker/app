@@ -28,7 +28,13 @@ export default async function ProjectEditorPage({
         projectId={project.id}
         projectName={project.name}
         template={
-          template ? { name: template.name, slug: template.slug } : null
+          template
+            ? {
+                name: template.name,
+                slug: template.slug,
+                initialContent: template.default_content ?? {},
+              }
+            : null
         }
       />
     </div>

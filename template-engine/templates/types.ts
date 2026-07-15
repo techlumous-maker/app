@@ -1,4 +1,5 @@
 import type { ReactElement } from "react"
+import type { ZodType } from "zod"
 
 import type { TemplateCategory } from "./taxonomy"
 
@@ -20,6 +21,7 @@ export type TemplateComponent<TContent> = (props: {
 
 export interface TemplateModule<TContent = unknown> {
   meta: TemplateMeta
+  contentSchema: ZodType<TContent>
   defaultContent: TContent
   Template: TemplateComponent<TContent>
 }

@@ -82,7 +82,7 @@ export default async function Page() {
               }
               status={cardStatus(project.deploy_status)}
               createdAt={formatCreatedAt(project.created_at)}
-              websiteUrl={project.deployment_url ?? "#"}
+              websiteUrl={project.deployment_url}
               vercelUrl="https://vercel.com"
             />
           ))}

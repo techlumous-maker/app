@@ -1,6 +1,6 @@
 "use client"
 
-import { useSyncExternalStore } from "react"
+import { useMemo, useState, useSyncExternalStore } from "react"
 
 import { BareTemplatePreview } from "@/components/template-preview"
 import {
@@ -8,6 +8,7 @@ import {
   type TemplateSchemaEditFormPosition,
 } from "@/components/template-schema-edit-form"
 import { cn } from "@/lib/utils"
+import { getTemplateContentSchema } from "@/templates/schema-registry"
 
 type PanelPosition = TemplateSchemaEditFormPosition
 
@@ -17,6 +18,7 @@ interface ProjectEditorWorkspaceProps {
   template?: {
     name: string
     slug: string
+    initialContent: unknown
   } | null
 }
 
@@ -49,6 +51,15 @@ export function ProjectEditorWorkspace({
   projectName,
   template,
 }: ProjectEditorWorkspaceProps) {
+  const contentSchema = useMemo(
+    () => (template ? getTemplateContentSchema(template.slug) : undefined),
+    [template]
+  )
+
+  const [content, setContent] = useState<unknown>(
+    () => template?.initialContent
+  )
+
   const panelPosition = useSyncExternalStore<PanelPosition>(
     subscribeToPanelPosition,
     getPanelPosition,
@@ -87,6 +98,9 @@ export function ProjectEditorWorkspace({
         <TemplateSchemaEditForm
           position={panelPosition}
           onPositionChange={updatePanelPosition}
+          schema={contentSchema}
+          value={content}
+          onChange={setContent}
         />
       </div>
     </section>

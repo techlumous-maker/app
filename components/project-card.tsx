@@ -1,7 +1,11 @@
 import Link from "next/link"
-import { TrashSimpleIcon } from "@phosphor-icons/react/ssr"
+import {
+  ArrowUpRightIcon,
+  NotePencilIcon,
+  TrashSimpleIcon,
+} from "@phosphor-icons/react/ssr"
 
-import { Button, IconButton } from "@/components/ui/button"
+import { Button, buttonVariants, IconButton } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
@@ -14,7 +18,7 @@ interface ProjectCardProps {
   image: string
   status?: ProjectStatus
   createdAt: string
-  websiteUrl: string
+  websiteUrl?: string | null
   vercelUrl: string
   onDelete?: () => void
   className?: string
@@ -65,8 +69,28 @@ export function ProjectCard({
         className
       )}
     >
-      <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl lg:w-64 lg:basis-1/3">
+      <div className="group relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl lg:w-64 lg:basis-1/3">
         <img src={image} alt={name} className="size-full object-cover" />
+
+        {websiteUrl && (
+          <a
+            href={websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Visit ${name} website`}
+            className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+          >
+            <span
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "lg" }),
+                "pointer-events-none gap-2 rounded-full pl-3 text-white hover:bg-white/10! hover:text-white!"
+              )}
+            >
+              Visit Website
+              <ArrowUpRightIcon />
+            </span>
+          </a>
+        )}
 
         <Button
           variant="ghost"
@@ -96,20 +120,18 @@ export function ProjectCard({
           <IconButton
             render={
               isTemplateSelected ? (
-                <a
-                  href={websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                />
+                <Link href={`/preview/${projectId}/edit`} />
               ) : (
                 <Link href={`/templates?project=${projectId}`} />
               )
             }
+            icon={isTemplateSelected ? NotePencilIcon : undefined}
+            iconPosition="end"
             variant="default"
             size="lg"
-            className="rounded-full pl-3 [&>svg]:transition-transform hover:[&>svg]:rotate-45"
+            className="rounded-full pl-3"
           >
-            {isTemplateSelected ? "Visit Website" : "Select Template"}
+            {isTemplateSelected ? "Edit Template" : "Select Template"}
           </IconButton>
           <IconButton
             render={

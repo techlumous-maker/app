@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import type { ZodType } from "zod"
-import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { PlusIcon, TrashSimpleIcon } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -47,11 +47,9 @@ export function Field({ field, value, onChange }: FieldProps) {
   if (widget === "group") {
     const obj = (value ?? {}) as Record<string, unknown>
     return (
-      <fieldset className="space-y-3">
+      <fieldset className="space-y-3 border-border/40 not-first:border-t">
         {field.label && (
-          <legend className="text-sm font-medium text-foreground">
-            {field.label}
-          </legend>
+          <Label className="pt-2 text-lg text-foreground">{field.label}</Label>
         )}
         {field.fields?.map((child) => (
           <Field
@@ -69,16 +67,16 @@ export function Field({ field, value, onChange }: FieldProps) {
     const arr = (value ?? []) as unknown[]
     const item = field.item
     return (
-      <div className="space-y-2">
+      <div className="space-y-2 border-border/40 not-first:border-t">
         {field.label && (
-          <Label className="text-xs text-muted-foreground">{field.label}</Label>
+          <Label className="pt-2 text-lg text-foreground">{field.label}</Label>
         )}
         {arr.map((entry, index) => (
           <div
             key={index}
-            className="flex items-start gap-2 rounded-md border border-border/60 p-3"
+            className="relative rounded-md border border-border/60 p-3"
           >
-            <div className="flex-1">
+            <div className="flex-1 pr-4">
               {item && (
                 <Field
                   field={item}
@@ -90,13 +88,13 @@ export function Field({ field, value, onChange }: FieldProps) {
               )}
             </div>
             <Button
-              type="button"
               variant="ghost"
               size="icon"
               aria-label="Remove item"
               onClick={() => onChange(arr.filter((_, i) => i !== index))}
+              className="absolute top-1 right-1 rounded-full text-foreground/40! hover:bg-destructive/5! hover:text-destructive!"
             >
-              <TrashIcon />
+              <TrashSimpleIcon />
             </Button>
           </div>
         ))}
@@ -118,7 +116,9 @@ export function Field({ field, value, onChange }: FieldProps) {
   return (
     <div className={cn("space-y-1")}>
       {field.label && (
-        <Label className="text-xs text-muted-foreground">{field.label}</Label>
+        <Label className="pl-1 text-xs text-muted-foreground">
+          {field.label}
+        </Label>
       )}
       <Widget field={field} value={value} onChange={onChange} />
     </div>
@@ -135,6 +135,5 @@ export function SchemaForm({
   onChange: (next: unknown) => void
 }) {
   const root = React.useMemo(() => normalize(schema), [schema])
-  console.log("SchemaForm", root)
   return <Field field={root} value={value} onChange={onChange} />
 }
