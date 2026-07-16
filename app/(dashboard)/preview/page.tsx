@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 
-import { TemplatePreview } from "@/components/template-preview"
+import { TemplatePreviewWindow } from "@/components/template-preview-window"
 import { createClient } from "@/lib/supabase/server"
 import { getTemplate } from "@/services/template"
 
@@ -34,7 +34,7 @@ export default async function Page({
 
   return (
     <div className="page">
-      <TemplatePreview slug={template.slug} name={template.name} />
+      <TemplatePreviewWindow slug={template.slug} name={template.name} />
     </div>
   )
 }

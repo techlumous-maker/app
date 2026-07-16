@@ -57,7 +57,7 @@ function Switcher({
           value={option.value}
           disabled={option.disabled}
           aria-label={option.ariaLabel}
-          className="rounded-full! border-0 bg-transparent px-3 py-1 text-muted-foreground shadow-none hover:bg-background/60 hover:text-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:shadow-sm"
+          className="items-center justify-center rounded-full! border-0 bg-transparent px-3 py-1 text-muted-foreground shadow-none hover:bg-background/60 hover:text-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:shadow-sm"
         >
           {option.icon && (
             <span data-icon="inline-start" aria-hidden="true">

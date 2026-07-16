@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react"
 
-import { BareTemplatePreview } from "@/components/template-preview"
+import { TemplateAutoHeightPreview } from "@/components/template-auto-height-preview"
 import {
   TemplateSchemaEditForm,
   type TemplateSchemaEditFormPosition,
@@ -87,7 +87,10 @@ export function ProjectEditorWorkspace({
           )}
         >
           {template ? (
-            <BareTemplatePreview slug={template.slug} name={template.name} />
+            <TemplateAutoHeightPreview
+              slug={template.slug}
+              name={template.name}
+            />
           ) : (
             <div className="flex size-full items-center justify-center bg-card px-6 text-center text-sm text-muted-foreground">
               Select a template to start editing this project.
