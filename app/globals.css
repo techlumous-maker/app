@@ -126,36 +126,24 @@
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-    scrollbar-color: color-mix(in oklab, var(--color-gray-600), transparent)
-      transparent !important;
-    scrollbar-width: thin !important;
+  /* width */
+  ::-webkit-scrollbar {
+    @apply w-1;
   }
-  *::-webkit-scrollbar {
-    width: 0.5rem;
-    height: 0.5rem;
-    background: transparent !important;
+
+  /* Track */
+  ::-webkit-scrollbar-track {
+    @apply bg-inherit;
   }
-  *::-webkit-scrollbar-track,
-  *::-webkit-scrollbar-track-piece,
-  *::-webkit-scrollbar-corner {
-    background: transparent !important;
-    box-shadow: none !important;
+
+  /* Handle */
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-xl bg-primary/60;
   }
-  *::-webkit-scrollbar-thumb {
-    border-radius: 9999px;
-    background-color: color-mix(
-      in oklab,
-      var(--color-gray-600),
-      transparent
-    ) !important;
-    box-shadow: none !important;
-  }
-  *::-webkit-scrollbar-button {
-    display: none !important;
-    width: 0;
-    height: 0;
+
+  /* Handle on hover */
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
   }
   body {
     @apply bg-background text-foreground;
