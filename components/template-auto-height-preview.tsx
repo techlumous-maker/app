@@ -3,11 +3,18 @@
 import { useCallback, useEffect, useRef } from "react"
 
 import { TemplateRenderer } from "@/components/template-preview"
+import {
+  isTemplateLiveMessage,
+  TEMPLATE_LIVE_CHANNEL,
+  type TemplateLiveMessage,
+} from "@/components/template-live-protocol"
 import { cn } from "@/lib/utils"
 
 interface TemplateAutoHeightPreviewProps {
   slug: string
   name: string
+  content: unknown
+  formReady: boolean
   className?: string
 }
 
@@ -17,10 +24,81 @@ interface TemplateAutoHeightPreviewProps {
 export function TemplateAutoHeightPreview({
   slug,
   name,
+  content,
+  formReady,
   className,
 }: TemplateAutoHeightPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
+  const frameLoadedRef = useRef(false)
+  const rendererReadyRef = useRef(false)
+
+  const postToRenderer = useCallback((message: TemplateLiveMessage) => {
+    const frame = iframeRef.current
+    if (!frame?.contentWindow) return
+
+    frame.contentWindow.postMessage(message, window.location.origin)
+  }, [])
+
+  const sendFormReady = useCallback(() => {
+    if (!formReady || !frameLoadedRef.current) return
+
+    postToRenderer({
+      channel: TEMPLATE_LIVE_CHANNEL,
+      type: "form-ready",
+      slug,
+    })
+  }, [formReady, postToRenderer, slug])
+
+  const sendContentUpdate = useCallback(() => {
+    if (!formReady || !rendererReadyRef.current || !frameLoadedRef.current) {
+      return
+    }
+
+    postToRenderer({
+      channel: TEMPLATE_LIVE_CHANNEL,
+      type: "content-update",
+      slug,
+      content,
+    })
+  }, [content, formReady, postToRenderer, slug])
+
+  useEffect(() => {
+    frameLoadedRef.current = false
+    rendererReadyRef.current = false
+  }, [slug])
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const frame = iframeRef.current
+      if (
+        event.origin !== window.location.origin ||
+        event.source !== frame?.contentWindow ||
+        !isTemplateLiveMessage(event.data) ||
+        event.data.slug !== slug ||
+        event.data.type !== "renderer-ready"
+      ) {
+        return
+      }
+
+      rendererReadyRef.current = true
+      sendFormReady()
+      sendContentUpdate()
+    }
+
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [sendContentUpdate, sendFormReady, slug])
+
+  useEffect(() => {
+    if (!formReady) return
+    sendFormReady()
+    sendContentUpdate()
+  }, [formReady, sendContentUpdate, sendFormReady])
+
+  useEffect(() => {
+    sendContentUpdate()
+  }, [content, sendContentUpdate])
 
   const resizeFrame = useCallback(() => {
     const frame = iframeRef.current
@@ -48,7 +126,12 @@ export function TemplateAutoHeightPreview({
       cleanupRef.current?.()
 
       const frame = event.currentTarget
+      frameLoadedRef.current = true
       const doc = frame.contentDocument
+
+      sendFormReady()
+      sendContentUpdate()
+
       if (!doc?.body) return
 
       doc.documentElement.style.overflow = "hidden"
@@ -90,7 +173,7 @@ export function TemplateAutoHeightPreview({
         }
       }
     },
-    [resizeFrame]
+    [resizeFrame, sendContentUpdate, sendFormReady]
   )
 
   useEffect(() => {

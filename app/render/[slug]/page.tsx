@@ -1,14 +1,12 @@
 import { notFound } from "next/navigation"
 
+import { LiveTemplateRenderer } from "./live-template-renderer"
 import { getTemplate } from "@/templates/registry"
 
 /**
- * Standalone renderer route. Renders a single template by slug using its
- * default content. The studio embeds this in an <iframe> so the template's
- * markup/styles are isolated from the studio app.
- *
- * Later this will accept content via postMessage (live preview) or from the
- * DB (published site); for now it renders the template's default content.
+ * Standalone renderer route. Renders a single template by slug. The studio
+ * embeds this in an <iframe> so the template's markup/styles are isolated from
+ * the studio app.
  */
 export default async function RenderPage({
   params,
@@ -19,6 +17,10 @@ export default async function RenderPage({
   const template = getTemplate(slug)
   if (!template) notFound()
 
-  const { Template, defaultContent } = template
-  return <Template content={defaultContent} />
+  return (
+    <LiveTemplateRenderer
+      slug={slug}
+      initialContent={template.defaultContent}
+    />
+  )
 }

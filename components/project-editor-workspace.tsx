@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useSyncExternalStore } from "react"
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react"
 
 import { TemplateAutoHeightPreview } from "@/components/template-auto-height-preview"
 import {
@@ -59,6 +59,11 @@ export function ProjectEditorWorkspace({
   const [content, setContent] = useState<unknown>(
     () => template?.initialContent
   )
+  const [formReady, setFormReady] = useState(false)
+
+  const handleFormReady = useCallback(() => {
+    setFormReady(true)
+  }, [])
 
   const panelPosition = useSyncExternalStore<PanelPosition>(
     subscribeToPanelPosition,
@@ -90,6 +95,8 @@ export function ProjectEditorWorkspace({
             <TemplateAutoHeightPreview
               slug={template.slug}
               name={template.name}
+              content={content}
+              formReady={formReady}
             />
           ) : (
             <div className="flex size-full items-center justify-center bg-card px-6 text-center text-sm text-muted-foreground">
@@ -104,6 +111,7 @@ export function ProjectEditorWorkspace({
           schema={contentSchema}
           value={content}
           onChange={setContent}
+          onReady={handleFormReady}
         />
       </div>
     </section>

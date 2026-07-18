@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import type { ZodType } from "zod"
 import { TextAlignLeftIcon, TextAlignRightIcon } from "@phosphor-icons/react"
 
@@ -31,6 +32,7 @@ interface TemplateSchemaEditFormProps {
   schema?: ZodType
   value?: unknown
   onChange: (next: unknown) => void
+  onReady?: () => void
   className?: string
 }
 
@@ -40,8 +42,13 @@ export function TemplateSchemaEditForm({
   schema,
   value,
   onChange,
+  onReady,
   className,
 }: TemplateSchemaEditFormProps) {
+  useEffect(() => {
+    if (schema) onReady?.()
+  }, [onReady, schema])
+
   return (
     <Card
       className={cn(
