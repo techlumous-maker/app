@@ -1,4 +1,9 @@
+"use client"
+
 import Link from "next/link"
+import * as React from "react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import {
   ArrowUpRightIcon,
   NotePencilIcon,
@@ -6,6 +11,18 @@ import {
 } from "@phosphor-icons/react/ssr"
 
 import { Button, buttonVariants, IconButton } from "@/components/ui/button"
+import { deleteProjectAction } from "@/actions/project"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
@@ -43,6 +60,70 @@ function InfoItem({
       <span className="font-mono text-sm text-muted-foreground">{label}</span>
       <div className="font-heading text-2xl text-foreground">{children}</div>
     </div>
+  )
+}
+
+function DeleteProjectDialog({
+  projectId,
+  name,
+  onDelete,
+  className,
+}: {
+  projectId: string
+  name: string
+  onDelete?: () => void
+  className?: string
+}) {
+  const router = useRouter()
+  const [isPending, startTransition] = React.useTransition()
+
+  function handleDelete() {
+    startTransition(async () => {
+      const result = await deleteProjectAction(projectId)
+      if (result.status === "success") {
+        toast.success(result.message)
+        onDelete?.()
+        router.refresh()
+      } else {
+        toast.error(result.message)
+      }
+    })
+  }
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Delete ${name}`}
+            className={cn(
+              "rounded-full text-foreground/40! hover:bg-destructive/10! hover:text-destructive!",
+              className
+            )}
+          />
+        }
+      >
+        <TrashSimpleIcon />
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-foreground">
+            Delete project?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete the project &quot;{name}&quot;?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} disabled={isPending}>
+            {isPending ? "Deleting…" : "Delete Project"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -92,15 +173,12 @@ export function ProjectCard({
           </a>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Delete ${name}`}
-          onClick={onDelete}
-          className="absolute top-4 right-4 hidden rounded-full text-foreground/40! hover:bg-destructive/10! hover:text-destructive! lg:flex"
-        >
-          <TrashSimpleIcon />
-        </Button>
+        <DeleteProjectDialog
+          projectId={projectId}
+          name={name}
+          onDelete={onDelete}
+          className="absolute top-4 right-4 flex lg:hidden"
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-6 p-2 lg:p-0">
@@ -146,15 +224,12 @@ export function ProjectCard({
         </div>
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={`Delete ${name}`}
-        onClick={onDelete}
-        className="absolute top-2 right-2 hidden rounded-full text-foreground/40! hover:bg-destructive/10! hover:text-destructive! lg:flex"
-      >
-        <TrashSimpleIcon />
-      </Button>
+      <DeleteProjectDialog
+        projectId={projectId}
+        name={name}
+        onDelete={onDelete}
+        className="absolute top-2 right-2 hidden lg:flex"
+      />
     </Card>
   )
 }

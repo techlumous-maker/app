@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient, createClient } from "@/lib/supabase/server"
 import {
   insertProjectSchema,
   updateProjectSchema,
@@ -76,4 +76,16 @@ export async function updateProject(
   if (error) throw new Error(`${error.message}`)
 
   return data
+}
+
+export async function deleteProject(id: string, userId: string): Promise<void> {
+  const supabase = await createAdminClient()
+
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId)
+
+  if (error) throw new Error(`Failed to delete project: ${error.message}`)
 }

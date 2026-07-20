@@ -3,9 +3,19 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { createProject, getProject, updateProject } from "@/services/project"
+import { createClient } from "@/lib/supabase/server"
+import {
+  createProject,
+  deleteProject,
+  getProject,
+  updateProject,
+} from "@/services/project"
 import { insertProjectSchema } from "@/services/project.schema"
-import { CreateProjectState, SelectTemplateState } from "@/types/project"
+import {
+  CreateProjectState,
+  SelectTemplateState,
+  DeleteProjectState,
+} from "@/types/project"
 
 const selectTemplateSchema = z.object({
   projectId: z.uuid(),
@@ -118,5 +128,34 @@ export async function selectTemplateAction(
       status: "error",
       message: "Failed to select template",
     }
+  }
+}
+
+export async function deleteProjectAction(
+  projectId: string
+): Promise<DeleteProjectState> {
+  const parsed = z.uuid().safeParse(projectId)
+  if (!parsed.success) {
+    return { status: "error", message: "Invalid project" }
+  }
+
+  const supabase = await createClient()
+  const { data: claims } = await supabase.auth.getClaims()
+  const userId = claims?.claims.sub
+
+  if (!userId) {
+    return {
+      status: "error",
+      message: "You must be authenticated to delete a project",
+    }
+  }
+
+  try {
+    await deleteProject(parsed.data, userId)
+    revalidatePath("/")
+    return { status: "success", message: "Project deleted" }
+  } catch (err) {
+    console.error("Failed to delete project", err)
+    return { status: "error", message: "Failed to delete project" }
   }
 }

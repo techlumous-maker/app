@@ -12,3 +12,8 @@ export type SelectTemplateState = {
   status: "success" | "error"
   message: string
 }
+
+export type DeleteProjectState = {
+  status: "success" | "error"
+  message: string
+}
