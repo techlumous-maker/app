@@ -105,6 +105,13 @@ export function TemplateAutoHeightPreview({
     const doc = frame?.contentDocument
     if (!frame || !doc?.body) return
 
+    // Temporarily shrinking the iframe changes the outer document's scroll
+    // height. If the editor is currently scrolled below that temporary
+    // height, the browser clamps the page to the top before the iframe is
+    // restored. Keep the user's outer-page position across the measurement.
+    const scrollX = window.scrollX
+    const scrollY = window.scrollY
+
     // Measure from the editor's available viewport height so template styles
     // such as min-height: 100vh do not create a height feedback loop.
     const minimumHeight = Math.max(window.innerHeight - 96, 320)
@@ -119,6 +126,7 @@ export function TemplateAutoHeightPreview({
     )
 
     frame.style.height = `${contentHeight}px`
+    window.scrollTo(scrollX, scrollY)
   }, [])
 
   const wireFrameHeight = useCallback(
