@@ -14,15 +14,25 @@ import {
   MonitorIcon,
 } from "@phosphor-icons/react"
 
+import { PreviewEmptyState } from "@/components/preview-empty-state"
 import { TemplateRenderer } from "@/components/template-preview"
 import { Switcher, type SwitcherOption } from "@/components/ui/switcher"
 import { cn } from "@/lib/utils"
 
-interface TemplatePreviewWindowProps {
-  slug: string
-  name: string
+type TemplatePreviewWindowProps = {
   className?: string
-}
+} & (
+  | {
+      slug: string
+      name: string
+      requestedTemplate?: never
+    }
+  | {
+      slug?: never
+      name?: never
+      requestedTemplate?: string
+    }
+)
 
 const VIEWPORTS = {
   desktop: { width: "100%" },
@@ -62,7 +72,7 @@ function FullscreenGlyph({ type }: { type: "maximize" | "minimize" }) {
       <CaretRightIcon
         weight="fill"
         className={cn(
-          `absolute top-1/2 left-1/2 size-2 -translate-y-1/2`,
+          "absolute top-1/2 left-1/2 size-2 -translate-y-1/2",
           type === "maximize"
             ? "-translate-x-[calc(50%-0.15rem)]"
             : "-translate-x-[calc(50%+0.18rem)]"
@@ -71,7 +81,7 @@ function FullscreenGlyph({ type }: { type: "maximize" | "minimize" }) {
       <CaretLeftIcon
         weight="fill"
         className={cn(
-          `absolute top-1/2 left-1/2 size-2 -translate-y-1/2`,
+          "absolute top-1/2 left-1/2 size-2 -translate-y-1/2",
           type === "maximize"
             ? "-translate-x-[calc(50%+0.18rem)]"
             : "-translate-x-[calc(50%-0.15rem)]"
@@ -126,6 +136,7 @@ function WindowTitle({ name }: { name: string }) {
 export function TemplatePreviewWindow({
   slug,
   name,
+  requestedTemplate,
   className,
 }: TemplatePreviewWindowProps) {
   const [viewport, setViewport] = useState<Viewport>("desktop")
@@ -257,6 +268,9 @@ export function TemplatePreviewWindow({
     [exitFullscreen]
   )
 
+  const windowTitle = name ?? "Template Preview"
+  const hasTemplate = Boolean(slug && name)
+
   return (
     <section
       className={cn(
@@ -271,33 +285,45 @@ export function TemplatePreviewWindow({
           onFullscreenToggle={enterFullscreen}
         />
 
-        <WindowTitle name={name} />
+        <WindowTitle name={windowTitle} />
 
-        <Switcher
-          aria-label="Preview viewport"
-          value={viewport}
-          options={viewportOptions}
-          onValueChange={(nextViewport) => {
-            setViewport(nextViewport as Viewport)
-          }}
-        />
+        {hasTemplate ? (
+          <Switcher
+            aria-label="Preview viewport"
+            value={viewport}
+            options={viewportOptions}
+            onValueChange={(nextViewport) => {
+              setViewport(nextViewport as Viewport)
+            }}
+          />
+        ) : (
+          <span aria-hidden className="w-10" />
+        )}
       </header>
 
       <div ref={stageSlotRef} className="h-[70vh]">
         <div
           ref={stageRef}
           className={cn(
-            "flex justify-center overflow-hidden bg-background",
+            "relative isolate flex justify-center overflow-hidden",
+            hasTemplate ? "bg-background" : "bg-secondary",
             fullscreen ? "fixed inset-0 z-50" : "size-full"
           )}
         >
-          <TemplateRenderer
-            slug={slug}
-            name={name}
-            onLoad={wireIframeDocument}
-            className="h-full border-0 bg-white transition-[width] duration-300"
-            style={{ width: VIEWPORTS[viewport].width }}
-          />
+          {slug && name ? (
+            <TemplateRenderer
+              slug={slug}
+              name={name}
+              onLoad={wireIframeDocument}
+              className="h-full border-0 bg-white transition-[width] duration-300"
+              style={{ width: VIEWPORTS[viewport].width }}
+            />
+          ) : (
+            <PreviewEmptyState
+              containerRef={stageRef}
+              requestedTemplate={requestedTemplate}
+            />
+          )}
         </div>
       </div>
 
@@ -305,7 +331,7 @@ export function TemplatePreviewWindow({
         <div className="group/exit fixed inset-x-0 top-0 z-60 h-1.5">
           <div className="relative flex h-9 -translate-y-full items-center border-b border-border bg-muted/80 px-3 backdrop-blur-sm transition-transform duration-200 group-hover/exit:translate-y-0">
             <TrafficLights fullscreen onFullscreenToggle={exitFullscreen} />
-            <WindowTitle name={name} />
+            <WindowTitle name={windowTitle} />
           </div>
         </div>
       )}
