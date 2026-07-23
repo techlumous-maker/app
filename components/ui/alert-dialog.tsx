@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
-import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -42,45 +41,25 @@ function AlertDialogOverlay({
 function AlertDialogContent({
   className,
   size = "default",
-  variant = "default",
-  overlayClassName,
-  portalProps,
   ...props
 }: AlertDialogPrimitive.Popup.Props & {
   size?: "default" | "sm"
-  overlayClassName?: string
-  portalProps?: AlertDialogPrimitive.Portal.Props
-} & VariantProps<typeof alertDialogContentVariants>) {
+}) {
   return (
-    <AlertDialogPortal {...portalProps}>
-      <AlertDialogOverlay className={overlayClassName} />
+    <AlertDialogPortal>
+      <AlertDialogOverlay />
       <AlertDialogPrimitive.Popup
         data-slot="alert-dialog-content"
         data-size={size}
-        data-variant={variant}
-        className={cn(alertDialogContentVariants({ variant }), className)}
+        className={cn(
+          "group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 gap-3 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-64 data-[size=default]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          className
+        )}
         {...props}
       />
     </AlertDialogPortal>
   )
 }
-
-const alertDialogContentVariants = cva(
-  "group/alert-dialog-content top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-  {
-    variants: {
-      variant: {
-        default:
-          "fixed gap-3 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 data-[size=default]:max-w-xs data-[size=sm]:max-w-64 data-[size=default]:sm:max-w-sm",
-        "macos-error":
-          "absolute max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-card ring-1 ring-foreground/10 sm:max-w-120",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-)
 
 function AlertDialogHeader({
   className,
