@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation"
+import Link from "next/link"
+import { WarningOctagonIcon } from "@phosphor-icons/react/ssr"
 
 import { TemplatePreviewWindow } from "@/components/template-preview-window"
+import { buttonVariants } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
+import { cn } from "@/lib/utils"
 import { getTemplate } from "@/services/template"
 
 export default async function Page({
@@ -13,23 +17,34 @@ export default async function Page({
   const { data } = await supabase.auth.getClaims()
   if (!data?.claims) redirect("/login")
 
-  const notFound = (slug?: string) => (
+  const emptyState = (slug?: string) => (
     <div className="page">
-      <p className="text-card-foreground/60">
-        {slug ? `No template found for "${slug}"` : "Please select a template."}
-      </p>
+      <div className="flex h-[70vh] flex-col items-center justify-center gap-4 px-6 text-center">
+        <WarningOctagonIcon
+          weight="duotone"
+          className="size-14 text-muted-foreground"
+        />
+        <p className="max-w-75 text-sm/6 text-card-foreground">
+          {slug
+            ? `The "${slug}" template could not be found. Choose another from the template library.`
+            : "No template is selected for this preview. Choose one from the template library."}
+        </p>
+        <Link href="/templates" className={cn(buttonVariants())}>
+          View Templates
+        </Link>
+      </div>
     </div>
   )
 
   const { template: requested } = await searchParams
   const slug = requested
 
-  if (!slug) return notFound()
+  if (!slug) return emptyState()
 
   const template = await getTemplate(slug)
 
   if (!template) {
-    return notFound(slug)
+    return emptyState(slug)
   }
 
   return (
