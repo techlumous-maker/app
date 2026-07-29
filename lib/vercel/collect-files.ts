@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises"
+import { readdir, readFile, stat } from "node:fs/promises"
 import path from "node:path"
 
 import ignore from "ignore"
@@ -12,6 +12,10 @@ import type { DeployFile } from "./deploy"
 // templates that weren't uploaded.
 
 const SLUG_PATTERN = /^[a-z0-9-]+$/
+const EXCLUDED_DEPLOYMENT_FILES = new Set([
+  "templates/schema-registry.ts",
+  "templates/taxonomy.ts",
+])
 
 export interface CollectEngineFilesParams {
   /** Template folder under templates/ to include (default "hello-world") */
@@ -55,16 +59,19 @@ export async function collectEngineFiles(
     throw new Error(`Invalid template slug "${slug}"`)
   }
 
-  const gitignore = await readFile(path.join(engineDir, ".gitignore"), "utf8")
+  let gitignore: string
+  try {
+    gitignore = await readFile(path.join(engineDir, ".gitignore"), "utf8")
+  } catch {
+    throw new Error(`Template engine not found or unreadable at ${engineDir}`)
+  }
   const ig = ignore().add(gitignore)
 
-  // Fail fast if the selected template doesn't exist.
+  const entryFile = path.join(engineDir, "templates", slug, "index.ts")
   try {
-    await readFile(path.join(engineDir, "templates", slug, "index.ts"))
+    if (!(await stat(entryFile)).isFile()) throw new Error()
   } catch {
-    throw new Error(
-      `Template "${slug}" not found in ${path.join(engineDir, "templates")}`
-    )
+    throw new Error(`Template "${slug}" is missing its index.ts entry file`)
   }
 
   const files: DeployFile[] = []
@@ -91,15 +98,39 @@ export async function collectEngineFiles(
         continue
       }
 
+      // Deployment collection never follows symlinks outside the engine.
+      if (!entry.isFile()) continue
       if (ig.ignores(rel)) continue
+      if (EXCLUDED_DEPLOYMENT_FILES.has(rel)) continue
       // The shared registry imports all templates; replaced by a generated one.
       if (rel === "templates/registry.ts") continue
 
-      files.push({ file: rel, data: await readFile(abs) })
+      let data = await readFile(abs)
+      if (rel === "templates/types.ts") {
+        data = Buffer.from(
+          data
+            .toString("utf8")
+            .replace(
+              'import type { TemplateCategory } from "./taxonomy"',
+              "type TemplateCategory = string"
+            )
+        )
+      }
+
+      files.push({ file: rel, data })
     }
   }
 
   await walk(engineDir)
+
+  if (!files.some((file) => file.file === `templates/${slug}/index.ts`)) {
+    throw new Error(
+      `Template "${slug}" entry file was excluded from the deployment`
+    )
+  }
+  if (files.length === 0) {
+    throw new Error("Template collection produced an empty deployment")
+  }
 
   files.push({ file: "templates/registry.ts", data: registrySource(slug) })
 

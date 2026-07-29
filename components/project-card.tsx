@@ -24,28 +24,30 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Card } from "@/components/ui/card"
+import { DeploymentButton } from "@/components/deployment-button"
+import {
+  DeploymentStatus,
+  normalizeDeploymentUrl,
+} from "@/components/deployment-status"
 import { cn } from "@/lib/utils"
-
-type ProjectStatus = "live" | "building" | "offline"
 
 interface ProjectCardProps {
   projectId: string
   name: string
   url: string
   image: string
-  status?: ProjectStatus
+  status?: string | null
   createdAt: string
   websiteUrl?: string | null
-  vercelUrl: string
+  lastDeployedAt?: string | null
+  onRetry?: () => void | Promise<void>
+  onReconnect?: () => void | Promise<void>
+  retryPending?: boolean
+  reconnectPending?: boolean
+  deploymentControlsDisabled?: boolean
   onDelete?: () => void
   className?: string
   isTemplateSelected?: boolean
-}
-
-const STATUS: Record<ProjectStatus, { label: string; dot: string }> = {
-  live: { label: "Live", dot: "bg-green-500" },
-  building: { label: "Building", dot: "bg-amber-500" },
-  offline: { label: "Offline", dot: "bg-destructive" },
 }
 
 function InfoItem({
@@ -61,6 +63,29 @@ function InfoItem({
       <div className="font-heading text-2xl text-foreground">{children}</div>
     </div>
   )
+}
+
+const deployedAtFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+})
+
+function formatDeployedAt(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  const elapsedMinutes = Math.floor((Date.now() - date.getTime()) / 60_000)
+  const elapsedHours = Math.floor(elapsedMinutes / 60)
+
+  if (elapsedHours >= 0 && elapsedHours < 24) {
+    if (elapsedHours === 0) {
+      if (elapsedMinutes <= 0) return "Just now"
+      return `${elapsedMinutes} ${elapsedMinutes === 1 ? "minute" : "minutes"} ago`
+    }
+    return `${elapsedHours} ${elapsedHours === 1 ? "hour" : "hours"} ago`
+  }
+
+  return deployedAtFormatter.format(date)
 }
 
 function DeleteProjectDialog({
@@ -119,7 +144,7 @@ function DeleteProjectDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleDelete} disabled={isPending}>
-            {isPending ? "Deleting…" : "Delete Project"}
+            {isPending ? "Deleting..." : "Delete Project"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -132,15 +157,24 @@ export function ProjectCard({
   name,
   url,
   image,
-  status = "live",
+  status,
   createdAt,
   websiteUrl,
-  vercelUrl,
+  lastDeployedAt,
+  onRetry,
+  onReconnect,
+  retryPending,
+  reconnectPending,
+  deploymentControlsDisabled,
   onDelete,
   className,
   isTemplateSelected,
 }: ProjectCardProps) {
-  const statusConfig = STATUS[status]
+  const normalizedWebsiteUrl = normalizeDeploymentUrl(websiteUrl)
+  const normalizedProjectUrl = normalizeDeploymentUrl(url)
+  const vercelProjectName = normalizedProjectUrl
+    ? new URL(normalizedProjectUrl).hostname.replace(/\.vercel\.app$/i, "")
+    : null
 
   return (
     <Card
@@ -153,9 +187,9 @@ export function ProjectCard({
       <div className="group relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl lg:w-64 lg:basis-1/3">
         <img src={image} alt={name} className="size-full object-cover" />
 
-        {websiteUrl && (
+        {normalizedWebsiteUrl && (
           <a
-            href={websiteUrl}
+            href={normalizedWebsiteUrl}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Visit ${name} website`}
@@ -182,19 +216,44 @@ export function ProjectCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-6 p-2 lg:p-0">
-        <div className="grid grid-cols-2 gap-x-10 gap-y-4">
+        <div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-3 sm:pr-10">
           <InfoItem label="Project Name">{name}</InfoItem>
           <InfoItem label="Status">
-            <span className="inline-flex items-center gap-2">
-              <span className={cn("size-1.5 rounded-full", statusConfig.dot)} />
-              {statusConfig.label}
-            </span>
+            {status ? (
+              <DeploymentStatus status={status} />
+            ) : (
+              <span className="text-muted-foreground">Not deployed</span>
+            )}
           </InfoItem>
-          <InfoItem label="Project URL">{url}</InfoItem>
+          <InfoItem label="Project URL">
+            {normalizedProjectUrl && vercelProjectName ? (
+              <a
+                href={normalizedProjectUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={normalizedProjectUrl}
+                className="inline-flex max-w-full items-center gap-1 hover:underline"
+              >
+                <span className="truncate">{vercelProjectName}</span>
+                <ArrowUpRightIcon className="size-5 shrink-0" />
+              </a>
+            ) : (
+              <span className="text-muted-foreground">{url}</span>
+            )}
+          </InfoItem>
           <InfoItem label="Created">{createdAt}</InfoItem>
+          <InfoItem label="Last Deployment">
+            {lastDeployedAt ? (
+              <time dateTime={lastDeployedAt}>
+                {formatDeployedAt(lastDeployedAt)}
+              </time>
+            ) : (
+              <span className="text-muted-foreground">-</span>
+            )}
+          </InfoItem>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <IconButton
             render={
               isTemplateSelected ? (
@@ -211,16 +270,13 @@ export function ProjectCard({
           >
             {isTemplateSelected ? "Edit Template" : "Select Template"}
           </IconButton>
-          <IconButton
-            render={
-              <a href={vercelUrl} target="_blank" rel="noopener noreferrer" />
-            }
-            variant="ghost"
-            size="lg"
-            className="rounded-full pl-3 [&>svg]:transition-transform hover:[&>svg]:rotate-45"
-          >
-            Vercel Project
-          </IconButton>
+          <DeploymentButton
+            onRetry={onRetry}
+            onReconnect={onReconnect}
+            retryPending={retryPending}
+            reconnectPending={reconnectPending}
+            disabled={deploymentControlsDisabled}
+          />
         </div>
       </div>
 

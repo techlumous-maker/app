@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 
 import { getTemplate, listTemplates } from "@/templates/registry"
 
-import { fetchSiteContent } from "../lib/content"
+import { fetchProjectContent } from "../lib/content"
 
-// Re-fetch the site's content from Supabase at most once a minute; content
+// Re-fetch the project's content from Supabase at most once a minute; content
 // edits in the studio go live without a redeploy.
 export const revalidate = 60
 
@@ -38,7 +38,6 @@ export default async function Page() {
   )
 
   const { Template, defaultContent } = template
-  // const content = (await fetchSiteContent()) ?? defaultContent
-  const content = defaultContent
+  const content = (await fetchProjectContent()) ?? defaultContent
   return <Template content={content} />
 }

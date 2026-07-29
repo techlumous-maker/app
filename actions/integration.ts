@@ -1,15 +1,18 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-
 import type { ActionState } from "@/types/integration"
-import { getUserIntegration } from "@/services/user-integration"
+import { getUserIntegrationByProvider } from "@/services/user-integration"
 import { deleteVaultSecret } from "@/services/vault-secret"
 
 export async function disconnectIntegration(
   prevState: ActionState
 ): Promise<ActionState> {
-  const integration = await getUserIntegration()
+  void prevState
+
+  const integration = await getUserIntegrationByProvider({
+    validateToken: false,
+  })
   if (!integration) {
     return { error: "No active integration found to disconnect." }
   }
@@ -17,10 +20,12 @@ export async function disconnectIntegration(
   try {
     await deleteVaultSecret(integration.token)
   } catch (err) {
-    console.error("Error deleting vault secret:", err)
+    console.error("Failed to disconnect Vercel", err)
     return { error: "Failed to disconnect integration." }
   }
 
   revalidatePath("/integration")
-  return { error: null }
+  return {
+    error: null,
+  }
 }

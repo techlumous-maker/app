@@ -1,79 +1,94 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import { collectEngineFiles } from "@/lib/vercel/collect-files"
-import { deployFiles } from "@/lib/vercel/deploy"
-import { getUserIntegrationByProvider } from "@/services/user-integration"
-import { getVaultSecret } from "@/services/vault-secret"
+import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
-export type DeployActionState = {
-  error: string | null
-  url?: string | null
+import { createClient } from "@/lib/supabase/server"
+import { getDeploymentState, type DeploymentState } from "@/services/deployment"
+import {
+  orchestrateProjectDeployment,
+  type DeploymentOrchestratorCode,
+} from "@/services/deployment-orchestrator"
+import type { DeploymentStatus } from "@/types/deployment"
+
+const projectIdSchema = z.uuid()
+
+export type DeploymentActionSnapshot = {
+  status: DeploymentStatus
+  liveUrl: string | null
+  inspectorUrl: string | null
+  errorText: string | null
+  lastDeployedAt: string | null
 }
 
-// Vercel project names must be lowercase alphanumeric/hyphens.
-const toProjectName = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+export type DeployProjectActionResult = {
+  status: "success" | "error"
+  code: DeploymentOrchestratorCode | "INVALID_PROJECT" | null
+  message: string
+  deployment: DeploymentActionSnapshot | null
+}
 
-/**
- * Deploys the template-engine (with the selected template) to the user's
- * Vercel account. Content is NOT bundled — the deployed site fetches the
- * user's published `site` row from Supabase at runtime, so later content
- * edits go live without another deploy.
- */
-export async function deploySite(
-  prevState: DeployActionState,
-  formData: FormData
-): Promise<DeployActionState> {
-  const templateSlug = String(formData.get("templateSlug") ?? "hello-world")
+function snapshot(
+  deployment: DeploymentState | null,
+  inspectorUrl: string | null = null
+): DeploymentActionSnapshot | null {
+  if (!deployment) return null
 
-  const supabase = await createClient()
-  const { data: site, error: siteError } = await supabase
-    .from("site")
-    .select("id, name, status")
-    .maybeSingle()
-
-  if (siteError || !site) {
-    return { error: "No site found for this account." }
+  return {
+    status: deployment.deploy_status ?? "not_deployed",
+    liveUrl: deployment.deployment_url,
+    inspectorUrl,
+    errorText: deployment.deploy_error,
+    lastDeployedAt: deployment.last_deployed_at,
   }
-  if (site.status !== "published") {
-    return { error: "Site content must be published before deploying." }
-  }
+}
 
-  const integration = await getUserIntegrationByProvider()
-  if (!integration || integration.status !== "CONNECTED") {
-    return { error: "Connect your Vercel account first." }
+export async function deployProjectAction(
+  projectId: string
+): Promise<DeployProjectActionResult> {
+  const parsedProjectId = projectIdSchema.safeParse(projectId)
+  if (!parsedProjectId.success) {
+    return {
+      status: "error",
+      code: "INVALID_PROJECT",
+      message: "Invalid project.",
+      deployment: null,
+    }
   }
 
   try {
-    const token = await getVaultSecret(integration.token)
-    if (!token) return { error: "Vercel token not found. Reconnect Vercel." }
+    const result = await orchestrateProjectDeployment(parsedProjectId.data)
+    revalidatePath(`/preview/${parsedProjectId.data}/edit`)
+    revalidatePath("/")
 
-    const files = await collectEngineFiles({ templateSlug })
-    const result = await deployFiles({
-      token,
-      teamId: (integration.credentials?.team_id as string | undefined) ?? undefined,
-      name: toProjectName(site.name) || "techlumous-site",
-      files,
-      target: "production",
-      env: {
-        SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-        SITE_ID: site.id,
-        TEMPLATE_SLUG: templateSlug,
-      },
-    })
-
-    if (result.status === "error") {
-      return { error: result.errorMessage ?? "Deployment failed." }
+    return {
+      status: result.ok ? "success" : "error",
+      code: result.code,
+      message: result.message,
+      deployment: snapshot(result.deployment, result.inspectorUrl),
     }
-
-    return { error: null, url: result.url ?? null }
-  } catch (err) {
-    console.error("Error deploying site:", err)
-    return { error: err instanceof Error ? err.message : "Deployment failed." }
+  } catch (error) {
+    console.error("Failed to deploy project", error)
+    return {
+      status: "error",
+      code: "DEPLOYMENT_FAILED",
+      message: "Failed to start the deployment.",
+      deployment: null,
+    }
   }
+}
+
+export async function getProjectDeploymentAction(
+  projectId: string
+): Promise<DeploymentActionSnapshot | null> {
+  const parsedProjectId = projectIdSchema.safeParse(projectId)
+  if (!parsedProjectId.success) return null
+
+  const supabase = await createClient()
+  const { data } = await supabase.auth.getClaims()
+  const userId = data?.claims.sub
+  if (!userId) return null
+
+  const deployment = await getDeploymentState(parsedProjectId.data, userId)
+  return snapshot(deployment)
 }

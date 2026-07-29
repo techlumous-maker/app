@@ -4,12 +4,18 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
+import {
+  deployProjectAction,
+  getProjectDeploymentAction,
+  type DeploymentActionSnapshot,
+} from "@/actions/deploy"
 import { saveProjectContentAction } from "@/actions/project"
 import { TemplateAutoHeightPreview } from "@/components/template-auto-height-preview"
 import {
@@ -28,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { getTemplateContentSchema } from "@/templates/schema-registry"
+import { isActiveDeploymentStatus } from "@/types/deployment"
 
 type PanelPosition = TemplateSchemaEditFormPosition
 
@@ -39,6 +46,8 @@ interface ProjectEditorWorkspaceProps {
     slug: string
     initialContent: unknown
   } | null
+  initialDeployment: DeploymentActionSnapshot
+  isVercelConnected: boolean
 }
 
 const PANEL_POSITION_KEY = "techlumous:editor-panel-position"
@@ -69,6 +78,8 @@ export function ProjectEditorWorkspace({
   projectId,
   projectName,
   template,
+  initialDeployment,
+  isVercelConnected,
 }: ProjectEditorWorkspaceProps) {
   const contentSchema = useMemo(
     () => (template ? getTemplateContentSchema(template.slug) : undefined),
@@ -82,6 +93,12 @@ export function ProjectEditorWorkspace({
     () => template?.initialContent
   )
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeploying, setIsDeploying] = useState(false)
+  const [deployment, setDeployment] =
+    useState<DeploymentActionSnapshot>(initialDeployment)
+  const [needsVercelReconnect, setNeedsVercelReconnect] =
+    useState(!isVercelConnected)
+  const deployingRef = useRef(false)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
   const [formReady, setFormReady] = useState(false)
@@ -90,6 +107,34 @@ export function ProjectEditorWorkspace({
     () => JSON.stringify(content) !== JSON.stringify(savedContent),
     [content, savedContent]
   )
+  const isContentValid = useMemo(
+    () => !!contentSchema?.safeParse(content).success,
+    [content, contentSchema]
+  )
+  const hasActiveDeployment = isActiveDeploymentStatus(deployment.status)
+  const canDeploy =
+    !!template &&
+    isContentValid &&
+    !isDirty &&
+    !isSaving &&
+    !hasActiveDeployment &&
+    !needsVercelReconnect
+  const deployDisabledReason = useMemo(() => {
+    if (!template) return "Select a template before deploying"
+    if (!isContentValid) return "Fix invalid content before deploying"
+    if (isDirty) return "Save changes before deploying"
+    if (isSaving) return "Wait for saving to finish"
+    if (hasActiveDeployment) return "A deployment is already in progress"
+    if (needsVercelReconnect) return "Reconnect Vercel before deploying"
+    return undefined
+  }, [
+    hasActiveDeployment,
+    isContentValid,
+    isDirty,
+    isSaving,
+    needsVercelReconnect,
+    template,
+  ])
 
   const handleSave = useCallback(async () => {
     setIsSaving(true)
@@ -103,6 +148,76 @@ export function ProjectEditorWorkspace({
       toast.error(result.message)
     }
   }, [content, projectId])
+
+  const handleDeploy = useCallback(async () => {
+    if (deployingRef.current) return
+    deployingRef.current = true
+
+    const previousDeployment = deployment
+    setIsDeploying(true)
+    setDeployment((current) => ({
+      ...current,
+      status: "preparing",
+      errorText: null,
+    }))
+
+    try {
+      const result = await deployProjectAction(projectId)
+      const nextDeployment = result.deployment
+
+      if (nextDeployment) {
+        setDeployment((current) => ({
+          ...nextDeployment,
+          inspectorUrl:
+            nextDeployment.inspectorUrl ?? current.inspectorUrl ?? null,
+        }))
+      } else {
+        setDeployment(previousDeployment)
+      }
+
+      if (result.code === "VERCEL_RECONNECT_REQUIRED") {
+        setNeedsVercelReconnect(true)
+      }
+
+      if (result.status === "success") {
+        toast.success(result.message)
+      } else {
+        toast.error(result.message)
+      }
+    } catch {
+      setDeployment(previousDeployment)
+      toast.error("Failed to start the deployment.")
+    } finally {
+      deployingRef.current = false
+      setIsDeploying(false)
+    }
+  }, [deployment, projectId])
+
+  useEffect(() => {
+    if (!isActiveDeploymentStatus(deployment.status)) return
+
+    let cancelled = false
+    const pollDeployment = async () => {
+      try {
+        const nextDeployment = await getProjectDeploymentAction(projectId)
+        if (cancelled || !nextDeployment) return
+
+        setDeployment((current) => ({
+          ...nextDeployment,
+          inspectorUrl:
+            nextDeployment.inspectorUrl ?? current.inspectorUrl ?? null,
+        }))
+      } catch {
+        // Keep the current status and retry on the next polling interval.
+      }
+    }
+
+    const intervalId = window.setInterval(pollDeployment, 4000)
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [deployment.status, projectId])
 
   useEffect(() => {
     const editorUrl = window.location.href
@@ -186,6 +301,10 @@ export function ProjectEditorWorkspace({
     window.dispatchEvent(new Event(PANEL_POSITION_EVENT))
   }
 
+  const handleReconnect = useCallback(() => {
+    router.push("/integration")
+  }, [router])
+
   return (
     <section
       aria-label={`${projectName} editor workspace`}
@@ -223,8 +342,16 @@ export function ProjectEditorWorkspace({
           onChange={setContent}
           onReady={handleFormReady}
           onSave={handleSave}
+          onDeploy={handleDeploy}
+          onRetry={handleDeploy}
+          onReconnect={handleReconnect}
           isDirty={isDirty}
           isSaving={isSaving}
+          isDeploying={isDeploying}
+          canDeploy={canDeploy}
+          deployDisabledReason={deployDisabledReason}
+          deployment={deployment}
+          needsVercelReconnect={needsVercelReconnect}
         />
       </div>
 

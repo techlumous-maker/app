@@ -9,7 +9,7 @@ export const integrationStatusSchema = z.enum([
 export const userIntegrationSchema = z.object({
   id: z.uuid(),
   user_id: z.uuid(),
-  provider: z.string().nullable(),
+  provider: z.literal("vercel"),
   token: z.uuid(),
   status: integrationStatusSchema.nullable(),
   created_at: z.string().nullable(),
@@ -19,7 +19,7 @@ export const userIntegrationSchema = z.object({
 
 export const insertUserIntegrationSchema = z.object({
   user_id: z.uuid().optional(),
-  provider: z.string().optional(),
+  provider: z.literal("vercel").default("vercel"),
   token: z.uuid(),
   status: integrationStatusSchema.default("PENDING"),
   credentials: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -27,7 +27,6 @@ export const insertUserIntegrationSchema = z.object({
 
 export const updateUserIntegrationSchema = z.object({
   user_id: z.uuid().optional(),
-  provider: z.string().optional(),
   token: z.uuid().optional(),
   status: integrationStatusSchema.optional(),
   credentials: z.record(z.string(), z.unknown()).nullable().optional(),

@@ -1,4 +1,5 @@
 export { SchemaForm, Field } from "./SchemaForm"
+export type { SchemaFieldLayout } from "./SchemaForm"
 export { normalize } from "./normalize"
 export { resolveWidget } from "./resolver"
 export type { FieldDescriptor, WidgetId, WidgetProps } from "./types"

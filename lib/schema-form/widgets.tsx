@@ -17,6 +17,7 @@ type LeafWidget = Exclude<WidgetId, "group" | "array">
 function TextWidget({ value, onChange, field }: WidgetProps) {
   return (
     <Input
+      variant="schema"
       value={String(value ?? "")}
       placeholder={field.label}
       onChange={(e) => onChange(e.target.value)}
@@ -27,6 +28,7 @@ function TextWidget({ value, onChange, field }: WidgetProps) {
 function TextareaWidget({ value, onChange, field }: WidgetProps) {
   return (
     <Textarea
+      variant="schema"
       value={String(value ?? "")}
       placeholder={field.label}
       onChange={(e) => onChange(e.target.value)}
@@ -37,6 +39,7 @@ function TextareaWidget({ value, onChange, field }: WidgetProps) {
 function UrlWidget({ value, onChange, field }: WidgetProps) {
   return (
     <Input
+      variant="schema"
       type="url"
       value={String(value ?? "")}
       placeholder={field.label}
@@ -51,7 +54,7 @@ function SelectWidget({ value, onChange, field }: WidgetProps) {
       value={String(value ?? "")}
       onValueChange={(next) => onChange(next)}
     >
-      <SelectTrigger className="w-full">
+      <SelectTrigger variant="schema" className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

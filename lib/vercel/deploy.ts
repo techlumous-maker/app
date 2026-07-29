@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto"
 
-// Standalone Vercel file-upload deployment of Next.js source — Vercel runs
-// the build. No env/vault/db coupling — every input is passed in. Mirrors
-// docs/vercel-deploy-files.md:
-//   1. upload each file (SHA + bytes)  2. create deployment  3. poll readyState
+import { VercelApiError, vercelRequest } from "./api"
+import {
+  findOrCreateProject,
+  resolveProject,
+  type FindOrCreateProjectParams,
+} from "./projects"
 
-const API = "https://api.vercel.com"
+export { findOrCreateProject, type FindOrCreateProjectParams }
 
 export interface DeployFile {
   /** Path within the deployment, e.g. "index.html" or "assets/app.js" */
@@ -17,29 +19,39 @@ export interface DeployFile {
 export interface DeployFilesParams {
   /** Vercel access token (Bearer) */
   token: string
-  /** Project slug — becomes the deployment URL prefix */
+  /** Project slug; the project is created when it does not exist */
   name: string
+  /** Stable Vercel project ID stored after the first deployment */
+  projectId?: string
   /** Files to deploy */
   files: DeployFile[]
-  /** Team id — omit for a personal account */
+  /** Team id; omit for a personal account */
   teamId?: string
   /** "production" for a production deploy; omit for a preview */
   target?: "production"
-  /** Env vars applied to the deployment (set as both runtime and build env) */
+  /** Env vars applied to this deployment at runtime and build time */
   env?: Record<string, string>
   /** Give up polling after this long (default 10 min) */
   timeoutMs?: number
   /** Delay between status polls (default 5s) */
   pollIntervalMs?: number
+  /** Maximum simultaneous file uploads (default 5) */
+  uploadConcurrency?: number
+  /** Timeout for each Vercel API request (default 30s) */
+  requestTimeoutMs?: number
+  /** Retries for rate limits, server errors, and network failures (default 3) */
+  maxRetries?: number
 }
 
 export interface DeployResult {
   status: "ready" | "error"
+  projectId: string
   deploymentId: string
-  url?: string
-  inspectorUrl?: string
-  errorMessage?: string
-  errorCode?: string
+  url: string | undefined
+  inspectorUrl: string | undefined
+  readyState: VercelReadyState
+  errorCode: string | undefined
+  errorMessage: string | undefined
 }
 
 interface FileRef {
@@ -48,160 +60,264 @@ interface FileRef {
   size: number
 }
 
+export type VercelReadyState =
+  "QUEUED" | "INITIALIZING" | "BUILDING" | "READY" | "ERROR" | "CANCELED"
+
 interface VercelDeployment {
   id: string
   url?: string
-  readyState:
-    | "QUEUED"
-    | "INITIALIZING"
-    | "BUILDING"
-    | "READY"
-    | "ERROR"
-    | "CANCELED"
+  readyState: VercelReadyState
   inspectorUrl?: string
   errorMessage?: string
   errorCode?: string
 }
 
+const DEFAULT_TIMEOUT_MS = 10 * 60_000
+const DEFAULT_POLL_INTERVAL_MS = 5000
+const DEFAULT_UPLOAD_CONCURRENCY = 5
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const isTerminal = (state: VercelDeployment["readyState"]) =>
+const isTerminal = (state: VercelReadyState) =>
   state === "READY" || state === "ERROR" || state === "CANCELED"
 
-const teamQuery = (teamId?: string) =>
-  teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""
+const apiOptions = (params: DeployFilesParams) => ({
+  token: params.token,
+  teamId: params.teamId,
+  requestTimeoutMs: params.requestTimeoutMs,
+  maxRetries: params.maxRetries,
+})
 
-// Step 1 — upload one file, returning its SHA reference. 409 = Vercel already
-// has this content, which is a success.
-async function uploadFile(token: string, file: DeployFile): Promise<FileRef> {
+const readDeployment = async (response: Response) => {
+  const deployment = (await response.json()) as Partial<VercelDeployment>
+  if (!deployment.id || !deployment.readyState) {
+    throw new Error(
+      "Vercel deployment response did not include an ID and ready state"
+    )
+  }
+  return deployment as VercelDeployment
+}
+
+function validateFiles(files: DeployFile[]): void {
+  if (files.length === 0) {
+    throw new Error("Cannot create an empty Vercel deployment")
+  }
+
+  const paths = new Set<string>()
+  for (const file of files) {
+    const segments = file.file.split("/")
+    if (
+      !file.file ||
+      file.file.startsWith("/") ||
+      file.file.includes("\\") ||
+      segments.includes("..") ||
+      segments.includes("")
+    ) {
+      throw new Error(`Invalid deployment file path "${file.file}"`)
+    }
+    if (paths.has(file.file)) {
+      throw new Error(`Duplicate deployment file path "${file.file}"`)
+    }
+    paths.add(file.file)
+  }
+}
+
+async function uploadFile(
+  params: DeployFilesParams,
+  file: DeployFile
+): Promise<FileRef> {
   const bytes =
     typeof file.data === "string"
       ? Buffer.from(file.data, "utf8")
       : Buffer.from(file.data)
   const sha = createHash("sha1").update(bytes).digest("hex")
 
-  const res = await fetch(`${API}/v2/files`, {
+  await vercelRequest({
+    ...apiOptions(params),
+    path: "/v2/files",
+    operation: `file upload for "${file.file}"`,
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/octet-stream",
       "x-vercel-digest": sha,
     },
-    body: bytes,
+    rawBody: bytes,
+    acceptableStatuses: [409],
   })
-
-  if (!res.ok && res.status !== 409) {
-    const detail = await res.text()
-    throw new Error(
-      `Vercel file upload failed for "${file.file}" (${res.status}): ${detail}`
-    )
-  }
 
   return { file: file.file, sha, size: bytes.length }
 }
 
-// Step 2 — create the deployment referencing the uploaded files.
-async function createDeployment(
-  params: DeployFilesParams,
-  files: FileRef[]
-): Promise<VercelDeployment> {
-  const res = await fetch(`${API}/v13/deployments${teamQuery(params.teamId)}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${params.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name: params.name,
-      files,
-      projectSettings: { framework: "nextjs" },
-      ...(params.env && { env: params.env, build: { env: params.env } }),
-      target: params.target,
-    }),
-  })
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(values.length)
+  let nextIndex = 0
 
-  if (!res.ok) {
-    const detail = await res.text()
-    throw new Error(
-      `Vercel deployment create failed (${res.status}): ${detail}`
-    )
+  const worker = async () => {
+    while (nextIndex < values.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(values[index])
+    }
   }
 
-  return (await res.json()) as VercelDeployment
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, values.length) }, worker)
+  )
+  return results
+}
+
+async function createDeployment(
+  params: DeployFilesParams,
+  projectName: string,
+  files: FileRef[]
+): Promise<VercelDeployment> {
+  const response = await vercelRequest({
+    ...apiOptions(params),
+    path: "/v13/deployments",
+    operation: "deployment creation",
+    method: "POST",
+    body: {
+      name: projectName,
+      files,
+      projectSettings: { framework: "nextjs" },
+      ...(params.env && {
+        env: params.env,
+        build: { env: params.env },
+      }),
+      target: params.target,
+    },
+    // Deployment creation is not idempotent. A caller can reconcile an
+    // ambiguous failure before explicitly trying again.
+    maxRetries: 0,
+  })
+
+  return readDeployment(response)
 }
 
 async function getDeployment(
-  token: string,
-  id: string,
-  teamId?: string
+  params: DeployFilesParams,
+  id: string
 ): Promise<VercelDeployment> {
-  const res = await fetch(`${API}/v13/deployments/${id}${teamQuery(teamId)}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const response = await vercelRequest({
+    ...apiOptions(params),
+    path: `/v13/deployments/${encodeURIComponent(id)}`,
+    operation: "deployment status fetch",
   })
 
-  if (!res.ok) {
-    const detail = await res.text()
-    throw new Error(`Vercel deployment fetch failed (${res.status}): ${detail}`)
-  }
-
-  return (await res.json()) as VercelDeployment
+  return readDeployment(response)
 }
 
 /**
- * Deploy a set of files to Vercel and wait for the build to finish.
- * Uploads every file, creates the deployment, then polls until it is READY,
- * ERROR, or CANCELED. Throws on network/API errors or a poll timeout.
+ * Uploads files, creates a Vercel project/deployment, and waits for the build
+ * to reach READY, ERROR, or CANCELED.
  */
 export async function deployFiles(
   params: DeployFilesParams
 ): Promise<DeployResult> {
   const {
-    token,
-    teamId,
-    timeoutMs = 10 * 60_000,
-    pollIntervalMs = 5000,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+    uploadConcurrency = DEFAULT_UPLOAD_CONCURRENCY,
   } = params
 
-  // Step 1 — upload files, collecting their SHA references
-  const files = await Promise.all(params.files.map((f) => uploadFile(token, f)))
+  validateFiles(params.files)
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("Deployment timeout must be greater than zero")
+  }
+  if (!Number.isFinite(pollIntervalMs) || pollIntervalMs <= 0) {
+    throw new Error("Deployment poll interval must be greater than zero")
+  }
+  if (!Number.isInteger(uploadConcurrency) || uploadConcurrency <= 0) {
+    throw new Error("Upload concurrency must be a positive integer")
+  }
 
-  console.log("Uploaded files:", files)
+  const project = await resolveProject({
+    token: params.token,
+    name: params.name,
+    projectId: params.projectId,
+    teamId: params.teamId,
+    requestTimeoutMs: params.requestTimeoutMs,
+    maxRetries: params.maxRetries,
+  })
+  const files = await mapWithConcurrency(
+    params.files,
+    uploadConcurrency,
+    (file) => uploadFile(params, file)
+  )
+  const created = await createDeployment(params, project.name, files)
 
-  // Step 2 — create the deployment
-  const created = await createDeployment(params, files)
-
-  console.log("Created deployment:", created)
-
-  // Step 3 — poll until the deployment settles (or we time out)
   const deadline = Date.now() + timeoutMs
   let deployment = created
-  while (!isTerminal(deployment.readyState)) {
-    if (Date.now() > deadline) {
-      throw new Error(
-        `Vercel deployment ${created.id} timed out after ${timeoutMs}ms (last state: ${deployment.readyState})`
-      )
+  try {
+    while (!isTerminal(deployment.readyState)) {
+      const remaining = deadline - Date.now()
+      if (remaining <= 0) {
+        return failedPollResult(
+          project.id,
+          deployment,
+          "DEPLOYMENT_POLL_TIMEOUT",
+          `Vercel deployment polling timed out after ${timeoutMs}ms`
+        )
+      }
+
+      await sleep(Math.min(pollIntervalMs, remaining))
+      deployment = await getDeployment(params, created.id)
     }
-    await sleep(pollIntervalMs)
-    deployment = await getDeployment(token, created.id, teamId)
+  } catch (error) {
+    return failedPollResult(
+      project.id,
+      deployment,
+      error instanceof VercelApiError
+        ? (error.code ?? "DEPLOYMENT_POLL_FAILED")
+        : "DEPLOYMENT_POLL_FAILED",
+      error instanceof Error
+        ? error.message
+        : "Vercel deployment polling failed"
+    )
   }
 
-  // Step 4 — surface the result
-  if (deployment.readyState === "READY") {
-    return {
-      status: "ready",
-      deploymentId: deployment.id,
-      url: deployment.url ? `https://${deployment.url}` : undefined,
-      inspectorUrl: deployment.inspectorUrl,
-    }
+  const ready = deployment.readyState === "READY"
+  return {
+    status: ready ? "ready" : "error",
+    projectId: project.id,
+    deploymentId: deployment.id,
+    url: deployment.url
+      ? deployment.url.startsWith("http")
+        ? deployment.url
+        : `https://${deployment.url}`
+      : undefined,
+    inspectorUrl: deployment.inspectorUrl,
+    readyState: deployment.readyState,
+    errorCode: ready ? undefined : deployment.errorCode,
+    errorMessage: ready
+      ? undefined
+      : (deployment.errorMessage ??
+        `Deployment ${deployment.readyState.toLowerCase()}`),
   }
+}
 
+function failedPollResult(
+  projectId: string,
+  deployment: VercelDeployment,
+  errorCode: string,
+  errorMessage: string
+): DeployResult {
   return {
     status: "error",
+    projectId,
     deploymentId: deployment.id,
+    url: deployment.url
+      ? deployment.url.startsWith("http")
+        ? deployment.url
+        : `https://${deployment.url}`
+      : undefined,
     inspectorUrl: deployment.inspectorUrl,
-    errorMessage:
-      deployment.errorMessage ??
-      `Deployment ${deployment.readyState.toLowerCase()}`,
-    errorCode: deployment.errorCode,
+    readyState: deployment.readyState,
+    errorCode,
+    errorMessage,
   }
 }

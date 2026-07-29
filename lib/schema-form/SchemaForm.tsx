@@ -39,9 +39,17 @@ interface FieldProps {
   field: FieldDescriptor
   value: unknown
   onChange: (next: unknown) => void
+  layout?: SchemaFieldLayout
 }
 
-export function Field({ field, value, onChange }: FieldProps) {
+export type SchemaFieldLayout = "above" | "beside"
+
+export function Field({
+  field,
+  value,
+  onChange,
+  layout = "above",
+}: FieldProps) {
   const widget = resolveWidget(field)
 
   if (widget === "group") {
@@ -49,7 +57,9 @@ export function Field({ field, value, onChange }: FieldProps) {
     return (
       <fieldset className="space-y-3 border-border/40 not-first:border-t">
         {field.label && (
-          <Label className="pt-2 text-lg text-foreground">{field.label}</Label>
+          <Label className="pt-2 font-mono text-lg text-foreground">
+            {field.label}
+          </Label>
         )}
         {field.fields?.map((child) => (
           <Field
@@ -57,6 +67,7 @@ export function Field({ field, value, onChange }: FieldProps) {
             field={child}
             value={obj[child.key]}
             onChange={(next) => onChange({ ...obj, [child.key]: next })}
+            layout={layout}
           />
         ))}
       </fieldset>
@@ -69,7 +80,9 @@ export function Field({ field, value, onChange }: FieldProps) {
     return (
       <div className="space-y-2 border-border/40 not-first:border-t">
         {field.label && (
-          <Label className="pt-2 text-lg text-foreground">{field.label}</Label>
+          <Label className="pt-2 font-mono text-lg text-foreground">
+            {field.label}
+          </Label>
         )}
         {arr.map((entry, index) => (
           <div
@@ -84,6 +97,7 @@ export function Field({ field, value, onChange }: FieldProps) {
                   onChange={(next) =>
                     onChange(arr.map((it, i) => (i === index ? next : it)))
                   }
+                  layout={layout}
                 />
               )}
             </div>
@@ -114,9 +128,20 @@ export function Field({ field, value, onChange }: FieldProps) {
 
   const Widget = widgets[widget] ?? widgets.text
   return (
-    <div className={cn("space-y-1")}>
+    <div
+      className={cn(
+        layout === "above"
+          ? "space-y-1"
+          : "grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-center gap-2"
+      )}
+    >
       {field.label && (
-        <Label className="pl-1 text-xs text-muted-foreground">
+        <Label
+          className={cn(
+            "pl-1 font-mono text-xs text-muted-foreground",
+            layout === "beside" && "self-start pt-1.5"
+          )}
+        >
           {field.label}
         </Label>
       )}
@@ -129,11 +154,15 @@ export function SchemaForm({
   schema,
   value,
   onChange,
+  layout = "beside",
 }: {
   schema: ZodType
   value: unknown
   onChange: (next: unknown) => void
+  layout?: SchemaFieldLayout
 }) {
   const root = React.useMemo(() => normalize(schema), [schema])
-  return <Field field={root} value={value} onChange={onChange} />
+  return (
+    <Field field={root} value={value} onChange={onChange} layout={layout} />
+  )
 }

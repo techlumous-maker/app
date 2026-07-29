@@ -2,10 +2,17 @@
 
 import { useEffect } from "react"
 import type { ZodType } from "zod"
-import { TextAlignLeftIcon, TextAlignRightIcon } from "@phosphor-icons/react"
+import {
+  CircleNotchIcon,
+  RocketLaunchIcon,
+  TextAlignLeftIcon,
+  TextAlignRightIcon,
+} from "@phosphor-icons/react"
 
+import type { DeploymentActionSnapshot } from "@/actions/deploy"
+import { DeploymentStatus } from "@/components/deployment-status"
+import { Button, IconButton } from "@/components/ui/button"
 import { Card, CardFooter, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Switcher, type SwitcherOption } from "@/components/ui/switcher"
 import { SchemaForm } from "@/lib/schema-form"
 import { cn } from "@/lib/utils"
@@ -15,13 +22,11 @@ export type TemplateSchemaEditFormPosition = "left" | "right"
 const positionOptions: readonly SwitcherOption[] = [
   {
     value: "left",
-    // label: "Left",
     icon: <TextAlignLeftIcon />,
     ariaLabel: "Place form on the left",
   },
   {
     value: "right",
-    // label: "Right",
     icon: <TextAlignRightIcon />,
     ariaLabel: "Place form on the right",
   },
@@ -35,8 +40,16 @@ interface TemplateSchemaEditFormProps {
   onChange: (next: unknown) => void
   onReady?: () => void
   onSave: () => void
+  onDeploy: () => void
+  onRetry: () => void
+  onReconnect: () => void
   isDirty: boolean
   isSaving: boolean
+  isDeploying: boolean
+  canDeploy: boolean
+  deployDisabledReason?: string
+  deployment: DeploymentActionSnapshot
+  needsVercelReconnect: boolean
   className?: string
 }
 
@@ -48,8 +61,16 @@ export function TemplateSchemaEditForm({
   onChange,
   onReady,
   onSave,
+  onDeploy,
+  onRetry,
+  onReconnect,
   isDirty,
   isSaving,
+  isDeploying,
+  canDeploy,
+  deployDisabledReason,
+  deployment,
+  needsVercelReconnect,
   className,
 }: TemplateSchemaEditFormProps) {
   useEffect(() => {
@@ -91,10 +112,40 @@ export function TemplateSchemaEditForm({
         )}
       </div>
 
-      <CardFooter className="justify-end border-t border-accent-foreground/20 pt-2!">
-        <Button onClick={onSave} disabled={!isDirty || isSaving}>
-          {isSaving ? "Saving…" : "Save"}
-        </Button>
+      <CardFooter className="flex-col items-stretch gap-2 border-t border-accent-foreground/20 pt-2!">
+        <DeploymentStatus
+          status={deployment.status}
+          liveUrl={deployment.liveUrl}
+          inspectorUrl={deployment.inspectorUrl}
+          lastDeployedAt={deployment.lastDeployedAt}
+          errorText={deployment.errorText}
+          onRetry={
+            ["error", "canceled", "timeout"].includes(deployment.status)
+              ? onRetry
+              : undefined
+          }
+          onReconnect={needsVercelReconnect ? onReconnect : undefined}
+          retryPending={isDeploying}
+          controlsDisabled={isSaving}
+        />
+
+        <div className="flex justify-end gap-2">
+          <Button onClick={onSave} disabled={!isDirty || isSaving}>
+            {isSaving ? "Saving..." : "Save"}
+          </Button>
+          <IconButton
+            type="button"
+            icon={isDeploying ? CircleNotchIcon : RocketLaunchIcon}
+            iconPosition="start"
+            iconClassName={cn(isDeploying && "animate-spin")}
+            onClick={onDeploy}
+            disabled={!canDeploy || isDeploying}
+            aria-busy={isDeploying}
+            title={deployDisabledReason}
+          >
+            {isDeploying ? "Deploying..." : "Deploy"}
+          </IconButton>
+        </div>
       </CardFooter>
     </Card>
   )

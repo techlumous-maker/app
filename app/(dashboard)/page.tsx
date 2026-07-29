@@ -20,10 +20,7 @@ const SKELETON_TRANSFORMS = [
 ]
 
 function cardStatus(deployStatus: Project["deploy_status"]) {
-  if (deployStatus === "ready") return "live" as const
-  if (deployStatus === "error") return "offline" as const
-  if (deployStatus) return "building" as const
-  return "offline" as const
+  return deployStatus?.trim().toLowerCase() || null
 }
 
 function formatCreatedAt(createdAt: Project["created_at"]) {
@@ -80,14 +77,11 @@ export default async function Page() {
               isTemplateSelected={!!project.template_id}
               image={STATIC_IMAGES[index % STATIC_IMAGES.length]}
               name={project.name}
-              url={
-                project.deployment_url?.replace(/^https?:\/\//, "") ??
-                "Not deployed"
-              }
+              url={project.deployment_url ?? "Not deployed"}
               status={cardStatus(project.deploy_status)}
               createdAt={formatCreatedAt(project.created_at)}
               websiteUrl={project.deployment_url}
-              vercelUrl="https://vercel.com"
+              lastDeployedAt={project.last_deployed_at}
             />
           ))}
         </div>
