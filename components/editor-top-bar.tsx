@@ -4,6 +4,7 @@ import {
   DeviceMobileCameraIcon,
   DeviceTabletCameraIcon,
   MonitorIcon,
+  SidebarSimpleIcon,
 } from "@phosphor-icons/react"
 
 import {
@@ -15,7 +16,8 @@ import { IconButton } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Switcher, type SwitcherOption } from "@/components/ui/switcher"
 
-export type PreviewViewport = "desktop" | "tablet" | "mobile" | "custom"
+export type PreviewViewportPreset = "desktop" | "tablet" | "mobile"
+export type PreviewViewport = PreviewViewportPreset | "custom"
 
 const viewportOptions: readonly SwitcherOption[] = [
   {
@@ -36,21 +38,27 @@ const viewportOptions: readonly SwitcherOption[] = [
 ]
 
 interface EditorTopBarProps {
-  projectName: string
-  projectStatus: string
+  title: string
+  projectStatus?: string
   liveUrl?: string | null
   viewport: PreviewViewport
-  onViewportChange: (viewport: Exclude<PreviewViewport, "custom">) => void
+  onViewportChange: (viewport: PreviewViewportPreset) => void
+  isSchemaFormOpen?: boolean
+  onToggleSchemaForm?: () => void
 }
 
 export function EditorTopBar({
-  projectName,
+  title,
   projectStatus,
   liveUrl,
   viewport,
   onViewportChange,
+  isSchemaFormOpen,
+  onToggleSchemaForm,
 }: EditorTopBarProps) {
-  const deploymentState = resolveDeploymentState(projectStatus)
+  const deploymentState = projectStatus
+    ? resolveDeploymentState(projectStatus)
+    : null
   const normalizedLiveUrl = normalizeDeploymentUrl(liveUrl)
   const isLive = deploymentState === "ready" && normalizedLiveUrl
 
@@ -60,8 +68,10 @@ export function EditorTopBar({
       className="relative flex min-h-12 w-full flex-row items-center justify-between gap-3 rounded-2xl bg-background px-4 py-0"
     >
       <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
-        <span className="truncate">{projectName}</span>
-        <DeploymentStatus status={projectStatus} className="shrink-0 py-0" />
+        <span className="truncate">{title}</span>
+        {projectStatus && (
+          <DeploymentStatus status={projectStatus} className="shrink-0 py-0" />
+        )}
       </div>
 
       <Switcher
@@ -69,29 +79,45 @@ export function EditorTopBar({
         value={viewport}
         options={viewportOptions}
         onValueChange={(value) =>
-          onViewportChange(value as Exclude<PreviewViewport, "custom">)
+          onViewportChange(value as PreviewViewportPreset)
         }
         className="absolute left-1/2 -translate-x-1/2"
       />
 
-      {isLive && (
-        <IconButton
-          render={
-            <a
-              href={normalizedLiveUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            />
-          }
-          // icon={ArrowSquareOutIcon}
-          iconPosition="end"
-          variant="outline"
-          size="sm"
-          className="shrink-0 rounded-full"
-        >
-          Visit website
-        </IconButton>
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        {isLive && (
+          <IconButton
+            render={
+              <a
+                href={normalizedLiveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            }
+            // icon={ArrowSquareOutIcon}
+            iconPosition="end"
+            variant="outline"
+            size="sm"
+            className="shrink-0 rounded-full"
+          >
+            Visit website
+          </IconButton>
+        )}
+        {onToggleSchemaForm && (
+          <IconButton
+            type="button"
+            icon={SidebarSimpleIcon}
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            iconClassName="text-foreground/70 rotate-180"
+            onClick={onToggleSchemaForm}
+            aria-label="Toggle edit content sidebar"
+            aria-expanded={isSchemaFormOpen}
+            title="Toggle edit content sidebar"
+          />
+        )}
+      </div>
     </Card>
   )
 }

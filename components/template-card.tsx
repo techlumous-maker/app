@@ -1,3 +1,5 @@
+"use client"
+
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowUpRightIcon } from "@phosphor-icons/react/ssr"
@@ -5,27 +7,29 @@ import { ArrowUpRightIcon } from "@phosphor-icons/react/ssr"
 import { TemplateSelectDialog } from "@/components/template-select-dialog"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardTitle } from "@/components/ui/card"
+import { useTemplateById } from "@/components/templates-provider"
 import { cn } from "@/lib/utils"
 
 interface TemplateCardProps {
   templateId: string
-  title: string
-  image: string
-  type: string
-  slug: string
   projectId?: string
   className?: string
 }
 
+function formatCategory(category: string) {
+  return category.charAt(0).toUpperCase() + category.slice(1)
+}
+
 export function TemplateCard({
   templateId,
-  title,
-  image,
-  type,
-  slug,
   projectId,
   className,
 }: TemplateCardProps) {
+  const template = useTemplateById(templateId)
+
+  if (!template) return null
+
+  const { name: title, thumbnail: image, category, slug } = template
   const card = (
     <Card
       variant="template"
@@ -34,7 +38,7 @@ export function TemplateCard({
       <div className="px-2 pt-2">
         <CardTitle className="text-[22px] leading-5">{title}</CardTitle>
         <span className="font-mono text-xs font-light text-card-foreground/40">
-          {type}
+          {formatCategory(category)}
         </span>
       </div>
 
@@ -70,8 +74,6 @@ export function TemplateCard({
       <TemplateSelectDialog
         templateId={templateId}
         projectId={projectId}
-        slug={slug}
-        title={title}
         className={className}
       >
         {card}

@@ -5,7 +5,6 @@ import { usePanelRef } from "react-resizable-panels"
 
 import type { PreviewViewport } from "@/components/editor-top-bar"
 import { TemplateAutoHeightPreview } from "@/components/template-auto-height-preview"
-import type { TemplateSchemaEditFormPosition } from "@/components/template-schema-edit-form"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -26,7 +25,7 @@ interface ResizableTemplatePreviewProps {
   content: unknown
   formReady: boolean
   viewport: PreviewViewport
-  formPosition: TemplateSchemaEditFormPosition
+  isSchemaFormOpen: boolean
   onManualResize: () => void
 }
 
@@ -36,7 +35,7 @@ export function ResizableTemplatePreview({
   content,
   formReady,
   viewport,
-  formPosition,
+  isSchemaFormOpen,
   onManualResize,
 }: ResizableTemplatePreviewProps) {
   const previewPanelRef = usePanelRef()
@@ -47,7 +46,7 @@ export function ResizableTemplatePreview({
     previewPanelRef.current?.resize(
       viewport === "desktop" ? 100_000 : VIEWPORT_WIDTHS[viewport]
     )
-  }, [previewPanelRef, viewport])
+  }, [isSchemaFormOpen, previewPanelRef, viewport])
 
   const templatePanel = (
     <ResizablePanel
@@ -55,7 +54,11 @@ export function ResizableTemplatePreview({
       panelRef={previewPanelRef}
       defaultSize="100%"
       minSize="380px"
-      groupResizeBehavior="preserve-pixel-size"
+      groupResizeBehavior={
+        !isSchemaFormOpen && viewport === "desktop"
+          ? "preserve-relative-size"
+          : "preserve-pixel-size"
+      }
       className="min-w-0 overflow-hidden bg-white"
     >
       <TemplateAutoHeightPreview
@@ -83,7 +86,11 @@ export function ResizableTemplatePreview({
       id="template-preview-handle"
       aria-label="Resize template preview"
       withHandle
-      className="[&>div]:bg-primary/80"
+      className={
+        isSchemaFormOpen
+          ? "[&>div]:bg-primary/80"
+          : "pointer-events-none opacity-0"
+      }
       onPointerDown={onManualResize}
       onKeyDown={(event) => {
         if (event.key.startsWith("Arrow")) onManualResize()
@@ -96,11 +103,9 @@ export function ResizableTemplatePreview({
       orientation="horizontal"
       className="template-resize-mesh h-auto! min-h-[calc(100dvh-6rem)]"
     >
-      {formPosition === "right" && workspacePanel}
-      {formPosition === "right" && resizeHandle}
+      {workspacePanel}
+      {resizeHandle}
       {templatePanel}
-      {formPosition === "left" && resizeHandle}
-      {formPosition === "left" && workspacePanel}
     </ResizablePanelGroup>
   )
 }

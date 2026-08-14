@@ -52,6 +52,8 @@ function schemaGroupStyle(level: number): React.CSSProperties | undefined {
 
 interface FieldProps {
   field: FieldDescriptor
+  fieldPath?: string[]
+  projectId?: string
   value: unknown
   onChange: (next: unknown) => void
   layout?: SchemaFieldLayout
@@ -65,6 +67,8 @@ export type SchemaFieldLayout = "above" | "beside"
 
 export function Field({
   field,
+  fieldPath = [],
+  projectId,
   value,
   onChange,
   layout = "above",
@@ -85,9 +89,11 @@ export function Field({
           <Field
             key={child.key}
             field={child}
+            fieldPath={[...fieldPath, child.key]}
+            projectId={projectId}
             value={obj[child.key]}
             onChange={(next) => onChange({ ...obj, [child.key]: next })}
-            layout={field.labelLayout ?? layout}
+            layout={child.labelLayout ?? layout}
             groupLevel={childGroupLevel}
             trailingAction={
               !isVisibleGroup && index === 0 ? trailingAction : undefined
@@ -183,6 +189,8 @@ export function Field({
                     {item && (
                       <Field
                         field={item}
+                        fieldPath={[...fieldPath, String(index)]}
+                        projectId={projectId}
                         value={entry}
                         onChange={(next) =>
                           onChange(
@@ -240,7 +248,13 @@ export function Field({
         </Label>
       )}
       <div className={cn("min-w-0", trailingAction && "pr-7")}>
-        <Widget field={field} value={value} onChange={onChange} />
+        <Widget
+          field={field}
+          fieldPath={fieldPath}
+          projectId={projectId}
+          value={value}
+          onChange={onChange}
+        />
       </div>
       {trailingAction && (
         <div
@@ -258,11 +272,13 @@ export function Field({
 
 export function SchemaForm({
   schema,
+  projectId,
   value,
   onChange,
   layout = "above",
 }: {
   schema: ZodType
+  projectId?: string
   value: unknown
   onChange: (next: unknown) => void
   layout?: SchemaFieldLayout
@@ -271,6 +287,7 @@ export function SchemaForm({
   return (
     <Field
       field={root}
+      projectId={projectId}
       value={value}
       onChange={onChange}
       layout={layout}

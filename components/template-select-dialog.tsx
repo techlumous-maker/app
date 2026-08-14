@@ -17,13 +17,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { useTemplateById } from "@/components/templates-provider"
 import { cn } from "@/lib/utils"
 
 interface TemplateSelectDialogProps {
   templateId: string
   projectId: string
-  slug: string
-  title: string
   className?: string
   children: React.ReactNode
 }
@@ -35,14 +34,16 @@ interface TemplateSelectDialogProps {
 export function TemplateSelectDialog({
   templateId,
   projectId,
-  slug,
-  title,
   className,
   children,
 }: TemplateSelectDialogProps) {
+  const template = useTemplateById(templateId)
   const router = useRouter()
   const [isPending, startTransition] = React.useTransition()
-  const previewHref = `/preview?template=${slug}&project=${projectId}`
+
+  if (!template) return null
+
+  const previewHref = `/preview?template=${template.slug}&project=${projectId}`
 
   function handleSelect() {
     startTransition(async () => {
@@ -63,7 +64,7 @@ export function TemplateSelectDialog({
       <AlertDialogTrigger
         render={<div role="button" tabIndex={0} />}
         nativeButton={false}
-        aria-label={`Select and preview ${title}`}
+        aria-label={`Select and preview ${template.name}`}
         className={cn(
           "block cursor-pointer rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           className
@@ -77,7 +78,7 @@ export function TemplateSelectDialog({
             Select this template?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to select &quot;{title}&quot; for this
+            Are you sure you want to select &quot;{template.name}&quot; for this
             project? You can also preview it first without changing the project.
           </AlertDialogDescription>
         </AlertDialogHeader>

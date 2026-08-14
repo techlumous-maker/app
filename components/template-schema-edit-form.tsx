@@ -2,38 +2,16 @@
 
 import { useEffect } from "react"
 import type { ZodType } from "zod"
-import {
-  CircleNotchIcon,
-  ArrowCircleUpRightIcon,
-  TextAlignLeftIcon,
-  TextAlignRightIcon,
-} from "@phosphor-icons/react"
+import { CircleNotchIcon, ArrowCircleUpRightIcon } from "@phosphor-icons/react"
 
 import { SchemaFormScrollArea } from "@/components/schema-form-scroll-area"
 import { Button, IconButton } from "@/components/ui/button"
 import { Card, CardFooter, CardTitle } from "@/components/ui/card"
-import { Switcher, type SwitcherOption } from "@/components/ui/switcher"
 import { SchemaForm } from "@/lib/schema-form"
 import { cn } from "@/lib/utils"
 
-export type TemplateSchemaEditFormPosition = "left" | "right"
-
-const positionOptions: readonly SwitcherOption[] = [
-  {
-    value: "left",
-    icon: <TextAlignLeftIcon />,
-    ariaLabel: "Place form on the left",
-  },
-  {
-    value: "right",
-    icon: <TextAlignRightIcon />,
-    ariaLabel: "Place form on the right",
-  },
-]
-
 interface TemplateSchemaEditFormProps {
-  position: TemplateSchemaEditFormPosition
-  onPositionChange: (position: TemplateSchemaEditFormPosition) => void
+  projectId: string
   schema?: ZodType
   value?: unknown
   onChange: (next: unknown) => void
@@ -46,12 +24,12 @@ interface TemplateSchemaEditFormProps {
   operation: "deploy" | "publish"
   canDeploy: boolean
   deployDisabledReason?: string
+  isOpen: boolean
   className?: string
 }
 
 export function TemplateSchemaEditForm({
-  position,
-  onPositionChange,
+  projectId,
   schema,
   value,
   onChange,
@@ -64,6 +42,7 @@ export function TemplateSchemaEditForm({
   operation,
   canDeploy,
   deployDisabledReason,
+  isOpen,
   className,
 }: TemplateSchemaEditFormProps) {
   useEffect(() => {
@@ -72,28 +51,17 @@ export function TemplateSchemaEditForm({
 
   return (
     <Card
+      aria-hidden={!isOpen}
+      inert={!isOpen}
       className={cn(
-        "sticky top-17 flex h-[calc(100dvh-6rem)] min-h-0 w-[clamp(14rem,28vw,22rem)] shrink-0 flex-col gap-0 overflow-hidden rounded-2xl bg-background p-0",
-        position === "left" && "order-1",
+        "sticky top-17 flex h-[calc(100dvh-6rem)] min-h-0 shrink-0 flex-col gap-0 overflow-hidden rounded-2xl bg-background p-0 transition-[width,opacity,transform] duration-200 ease-out",
+        isOpen
+          ? "w-[clamp(14rem,28vw,22rem)] translate-x-0 opacity-100"
+          : "pointer-events-none w-0 translate-x-2 opacity-0",
         className
       )}
     >
-      <CardTitle className="flex items-center justify-between gap-2 p-3 text-base font-medium">
-        Edit Content
-        <div className="flex shrink-0 justify-end">
-          <span id="schema-form-position-label" className="sr-only">
-            Arrange template schema edit form
-          </span>
-          <Switcher
-            aria-labelledby="schema-form-position-label"
-            value={position}
-            options={positionOptions}
-            onValueChange={(nextPosition) =>
-              onPositionChange(nextPosition as TemplateSchemaEditFormPosition)
-            }
-          />
-        </div>
-      </CardTitle>
+      <CardTitle className="p-3 text-base font-medium">Edit Content</CardTitle>
 
       <SchemaFormScrollArea
         aria-label="Schema fields"
@@ -103,6 +71,7 @@ export function TemplateSchemaEditForm({
           {schema ? (
             <SchemaForm
               schema={schema}
+              projectId={projectId}
               value={value}
               onChange={onChange}
               layout="beside"

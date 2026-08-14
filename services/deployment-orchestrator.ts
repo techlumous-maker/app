@@ -13,6 +13,7 @@ import {
   updateDeploymentState,
   type DeploymentState,
 } from "@/services/deployment"
+import { cleanupProjectImages } from "@/services/image"
 import { getProject, updateProject } from "@/services/project"
 import type { Project } from "@/services/project.schema"
 import { getTemplateById } from "@/services/template"
@@ -63,6 +64,7 @@ type DeploymentOrchestratorDependencies = {
   updateDeploymentState: typeof updateDeploymentState
   markDeploymentSuccess: typeof markDeploymentSuccess
   markDeploymentFailure: typeof markDeploymentFailure
+  cleanupProjectImages: typeof cleanupProjectImages
 }
 
 export type DeploymentOrchestratorOverrides =
@@ -88,6 +90,7 @@ const defaultDependencies: DeploymentOrchestratorDependencies = {
   updateDeploymentState,
   markDeploymentSuccess,
   markDeploymentFailure,
+  cleanupProjectImages,
 }
 
 const publicErrorMessages: Record<DeploymentOrchestratorCode, string> = {
@@ -240,6 +243,26 @@ async function recordAcceptedDeployment(
   )
 }
 
+async function cleanupReleasedImages(
+  dependencies: DeploymentOrchestratorDependencies,
+  project: Project,
+  publishedContent: Record<string, unknown>,
+  releaseStartedAt: Date
+) {
+  try {
+    await dependencies.cleanupProjectImages(
+      project.user_id,
+      project.id,
+      publishedContent,
+      releaseStartedAt
+    )
+  } catch (error) {
+    // Publishing is already complete. Keep the release successful and retry
+    // orphan cleanup on the next publish or deploy.
+    console.error("Failed to clean up unused project images", error)
+  }
+}
+
 export async function orchestrateProjectDeployment(
   projectId: string,
   overrides: DeploymentOrchestratorOverrides = {}
@@ -284,6 +307,7 @@ export async function orchestrateProjectDeployment(
   }
 
   const isLive = hasLiveDeployment(existingDeployment)
+  const releaseStartedAt = new Date()
 
   // Stage 4: Publish the validated draft. The first deployment also persists
   // template defaults as the initial draft.
@@ -296,6 +320,12 @@ export async function orchestrateProjectDeployment(
   // A live template reads published content from Supabase and revalidates it
   // periodically, so content-only changes do not require another Vercel build.
   if (isLive) {
+    await cleanupReleasedImages(
+      dependencies,
+      project,
+      parsedContent.data,
+      releaseStartedAt
+    )
     return {
       ok: true,
       code: null,
@@ -436,6 +466,12 @@ export async function orchestrateProjectDeployment(
       userId,
       result
     )
+    await cleanupReleasedImages(
+      dependencies,
+      project,
+      parsedContent.data,
+      releaseStartedAt
+    )
     return {
       ok: true,
       code: null,
@@ -455,6 +491,13 @@ export async function orchestrateProjectDeployment(
             contentHash: contentHash(parsedContent.data),
           })) ?? current)
         : current
+
+    await cleanupReleasedImages(
+      dependencies,
+      project,
+      parsedContent.data,
+      releaseStartedAt
+    )
 
     return {
       ok: true,

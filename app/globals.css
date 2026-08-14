@@ -75,7 +75,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
   --shadow-card: 0 4px 14px 0
-    color-mix(in oklab, var(--card-foreground) 6%, transparent);
+    color-mix(in oklab, var(--card-foreground) 15%, transparent);
   --editor-nested-group-overlay: oklch(1 0 0 / 4%);
 }
 
@@ -183,16 +183,14 @@
 .integration-card-glow {
   box-shadow:
     var(--shadow-card),
-    inset 30px -10px 100px 0px
-      color-mix(in oklab, var(--primary) 10%, transparent);
-  transition: box-shadow 300ms ease-in-out;
+    inset 0px color-mix(in oklab, var(--primary) 10%, transparent);
+  transition: box-shadow 500ms ease-in-out;
 }
 
 .integration-card-glow:hover {
   box-shadow:
     var(--shadow-card),
-    inset 0px -10px 100px 0px
-      color-mix(in oklab, var(--primary) 30%, transparent);
+    inset 0px -8px 75px 0px color-mix(in oklab, var(--primary) 30%, transparent);
 }
 
 .editor-workspace-grid {

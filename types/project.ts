@@ -13,7 +13,7 @@ export type SelectTemplateState = {
   message: string
 }
 
-export type DeleteProjectState = {
-  status: "success" | "error"
-  message: string
-}
+export type DeleteProjectState =
+  | { status: "success"; message: string }
+  | { status: "error"; message: string }
+  | { status: "vercel_error"; message: string }

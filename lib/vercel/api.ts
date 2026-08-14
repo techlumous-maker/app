@@ -9,7 +9,7 @@ export interface VercelRequestOptions {
   path: string
   operation: string
   teamId?: string
-  method?: "GET" | "POST" | "PATCH"
+  method?: "GET" | "POST" | "PATCH" | "DELETE"
   body?: unknown
   rawBody?: Uint8Array
   headers?: Record<string, string>

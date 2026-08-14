@@ -5,13 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import { listProjects } from "@/services/project"
 import { type Project } from "@/services/project.schema"
-import { listTemplates } from "@/services/template"
 import { redirect } from "next/navigation"
-
-const STATIC_IMAGES = [
-  "/assets/static-test/template-1.jpg",
-  "/assets/static-test/template-2.jpg",
-]
 
 const SKELETON_TRANSFORMS = [
   "-rotate-3 z-10",
@@ -38,15 +32,12 @@ export default async function Page() {
   if (!data?.claims) redirect("/login")
 
   const projects = await listProjects()
-  const templates = await listTemplates()
 
   return (
     <div className="page">
       <div className="flex items-center justify-between">
         <h1 className="max-sm:pl-2">Projects</h1>
-        {projects.length > 0 && (
-          <CreateProjectDrawer buttonVariant="icon" templates={templates} />
-        )}
+        {projects.length > 0 && <CreateProjectDrawer buttonVariant="icon" />}
       </div>
       {projects.length === 0 ? (
         <div className="mt-8 flex flex-col items-center justify-center gap-10 overflow-x-clip">
@@ -65,17 +56,16 @@ export default async function Page() {
             <p className="text-muted-foreground/60 max-sm:pl-2">
               No projects yet. How about creating a project to get started?
             </p>
-            <CreateProjectDrawer templates={templates} />
+            <CreateProjectDrawer />
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {projects.map((project, index) => (
+          {projects.map((project) => (
             <ProjectCard
               key={project.id}
               projectId={project.id}
-              isTemplateSelected={!!project.template_id}
-              image={STATIC_IMAGES[index % STATIC_IMAGES.length]}
+              templateId={project.template_id}
               name={project.name}
               url={project.deployment_url ?? "Not deployed"}
               status={cardStatus(project.deploy_status)}

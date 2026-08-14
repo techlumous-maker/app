@@ -15,6 +15,8 @@ export interface FieldDescriptor {
 
 export interface WidgetProps {
   field: FieldDescriptor
+  fieldPath: string[]
+  projectId?: string
   value: unknown
   onChange: (next: unknown) => void
 }

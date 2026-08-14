@@ -1,13 +1,6 @@
 "use client"
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -17,12 +10,14 @@ import {
   type DeploymentActionSnapshot,
 } from "@/actions/deploy"
 import { saveProjectContentAction } from "@/actions/project"
-import { EditorTopBar, type PreviewViewport } from "@/components/editor-top-bar"
-import { ResizableTemplatePreview } from "@/components/resizable-template-preview"
 import {
-  TemplateSchemaEditForm,
-  type TemplateSchemaEditFormPosition,
-} from "@/components/template-schema-edit-form"
+  EditorTopBar,
+  type PreviewViewport,
+  type PreviewViewportPreset,
+} from "@/components/editor-top-bar"
+import { ResizableTemplatePreview } from "@/components/resizable-template-preview"
+import { TemplateSchemaEditForm } from "@/components/template-schema-edit-form"
+import { useTemplateById } from "@/components/templates-provider"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,69 +28,54 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
 import { getTemplateContentSchema } from "@/templates/schema-registry"
 import { isActiveDeploymentStatus } from "@/types/deployment"
-
-type PanelPosition = TemplateSchemaEditFormPosition
+import { cn } from "@/lib/utils"
 
 interface ProjectEditorWorkspaceProps {
   projectId: string
   projectName: string
-  template?: {
-    name: string
-    slug: string
-    initialContent: unknown
-  } | null
+  templateId?: string | null
+  initialDraftContent: unknown
   initialDeployment: DeploymentActionSnapshot
   hasLiveDeployment: boolean
   initialPublishedContent: unknown
   isVercelConnected: boolean
 }
 
-const PANEL_POSITION_KEY = "techlumous:editor-panel-position"
-const PANEL_POSITION_EVENT = "techlumous:editor-panel-position-change"
-
-function getPanelPosition(): PanelPosition {
-  const savedPosition = window.localStorage.getItem(PANEL_POSITION_KEY)
-  return savedPosition === "left" || savedPosition === "right"
-    ? savedPosition
-    : "right"
-}
-
-function subscribeToPanelPosition(onStoreChange: () => void) {
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key === PANEL_POSITION_KEY) onStoreChange()
-  }
-
-  window.addEventListener("storage", handleStorage)
-  window.addEventListener(PANEL_POSITION_EVENT, onStoreChange)
-
-  return () => {
-    window.removeEventListener("storage", handleStorage)
-    window.removeEventListener(PANEL_POSITION_EVENT, onStoreChange)
-  }
+function hasContent(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null && typeof value === "object" && Object.keys(value).length > 0
+  )
 }
 
 export function ProjectEditorWorkspace({
   projectId,
   projectName,
-  template,
+  templateId,
+  initialDraftContent,
   initialDeployment,
   hasLiveDeployment: initialHasLiveDeployment,
   initialPublishedContent,
   isVercelConnected,
 }: ProjectEditorWorkspaceProps) {
+  const template = useTemplateById(templateId)
   const contentSchema = useMemo(
     () => (template ? getTemplateContentSchema(template.slug) : undefined),
     [template]
   )
 
-  const [content, setContent] = useState<unknown>(
-    () => template?.initialContent
+  const initialContent = useMemo(
+    () =>
+      [initialDraftContent, initialPublishedContent].find(hasContent) ??
+      template?.default_content ??
+      {},
+    [initialDraftContent, initialPublishedContent, template]
   )
+
+  const [content, setContent] = useState<unknown>(() => initialContent)
   const [savedContent, setSavedContent] = useState<unknown>(
-    () => template?.initialContent
+    () => initialContent
   )
   const [publishedContent, setPublishedContent] = useState<unknown>(
     () => initialPublishedContent
@@ -111,6 +91,7 @@ export function ProjectEditorWorkspace({
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
   const [formReady, setFormReady] = useState(false)
   const [viewport, setViewport] = useState<PreviewViewport>("desktop")
+  const [isSchemaFormOpen, setIsSchemaFormOpen] = useState(true)
   const router = useRouter()
   const isDirty = useMemo(
     () => JSON.stringify(content) !== JSON.stringify(savedContent),
@@ -328,18 +309,7 @@ export function ProjectEditorWorkspace({
     setFormReady(true)
   }, [])
 
-  const panelPosition = useSyncExternalStore<PanelPosition>(
-    subscribeToPanelPosition,
-    getPanelPosition,
-    () => "right"
-  )
-
-  const updatePanelPosition = (position: PanelPosition) => {
-    window.localStorage.setItem(PANEL_POSITION_KEY, position)
-    window.dispatchEvent(new Event(PANEL_POSITION_EVENT))
-  }
-
-  const updateViewport = (nextViewport: Exclude<PreviewViewport, "custom">) => {
+  const updateViewport = (nextViewport: PreviewViewportPreset) => {
     setViewport(nextViewport)
   }
 
@@ -357,20 +327,22 @@ export function ProjectEditorWorkspace({
 
       <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-4.2rem)] w-full max-w-7xl flex-col gap-3 p-3">
         <EditorTopBar
-          projectName={projectName}
+          title={projectName}
           projectStatus={deployment.status}
           liveUrl={deployment.liveUrl}
           viewport={viewport}
           onViewportChange={updateViewport}
+          isSchemaFormOpen={isSchemaFormOpen}
+          onToggleSchemaForm={() => setIsSchemaFormOpen((current) => !current)}
         />
 
-        <div className="flex w-full min-w-0 flex-1 items-start gap-3">
-          <div
-            className={cn(
-              "min-h-[calc(100dvh-6rem)] min-w-0 flex-1 overflow-hidden",
-              panelPosition === "left" && "order-2"
-            )}
-          >
+        <div
+          className={cn(
+            "flex w-full min-w-0 flex-1 items-start transition-[gap] duration-200 ease-out",
+            isSchemaFormOpen ? "gap-3" : "gap-0"
+          )}
+        >
+          <div className="min-h-[calc(100dvh-6rem)] min-w-0 flex-1 overflow-hidden">
             {template ? (
               <ResizableTemplatePreview
                 slug={template.slug}
@@ -378,7 +350,7 @@ export function ProjectEditorWorkspace({
                 content={content}
                 formReady={formReady}
                 viewport={viewport}
-                formPosition={panelPosition}
+                isSchemaFormOpen={isSchemaFormOpen}
                 onManualResize={markViewportAsCustom}
               />
             ) : (
@@ -389,8 +361,7 @@ export function ProjectEditorWorkspace({
           </div>
 
           <TemplateSchemaEditForm
-            position={panelPosition}
-            onPositionChange={updatePanelPosition}
+            projectId={projectId}
             schema={contentSchema}
             value={content}
             onChange={setContent}
@@ -403,6 +374,7 @@ export function ProjectEditorWorkspace({
             operation={releaseOperation}
             canDeploy={canDeploy}
             deployDisabledReason={deployDisabledReason}
+            isOpen={isSchemaFormOpen}
           />
         </div>
       </div>

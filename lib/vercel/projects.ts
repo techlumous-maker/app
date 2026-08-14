@@ -15,6 +15,14 @@ export interface FindOrCreateProjectParams {
   maxRetries?: number
 }
 
+export interface DeleteProjectParams {
+  token: string
+  idOrName: string
+  teamId?: string
+  requestTimeoutMs?: number
+  maxRetries?: number
+}
+
 export interface VercelProject {
   id: string
   name: string
@@ -93,4 +101,18 @@ export async function findOrCreateProject(
   params: FindOrCreateProjectParams
 ): Promise<string> {
   return (await resolveProject(params)).id
+}
+
+export async function deleteProject(
+  params: DeleteProjectParams
+): Promise<void> {
+  const idOrName = params.idOrName.trim()
+  if (!idOrName) throw new Error("A Vercel project ID or name is required")
+
+  await vercelRequest({
+    ...params,
+    path: `/v9/projects/${encodeURIComponent(idOrName)}`,
+    operation: "project deletion",
+    method: "DELETE",
+  })
 }

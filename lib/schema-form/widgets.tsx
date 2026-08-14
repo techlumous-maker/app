@@ -3,7 +3,9 @@
 import { useRef, useState } from "react"
 import Image from "next/image"
 import { CircleNotchIcon, ImageIcon, TrashIcon } from "@phosphor-icons/react"
+import { toast } from "sonner"
 
+import { uploadProjectImageAction } from "@/actions/image"
 import {
   Attachment,
   AttachmentAction,
@@ -23,11 +25,14 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { uploadImage } from "@/services/image"
-
 import type { WidgetId, WidgetProps } from "./types"
 
 type LeafWidget = Exclude<WidgetId, "group" | "array">
+
+const IMAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_IMAGE_BUCKET ?? "project-images"
+const USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function TextWidget({ value, onChange, field }: WidgetProps) {
   return (
@@ -73,13 +78,36 @@ function imageName(url: string) {
   if (!url) return "Upload image"
 
   try {
-    return decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "Image")
+    const parsedUrl = new URL(url)
+    return (
+      parsedUrl.searchParams.get("name")?.trim() ||
+      decodeURIComponent(parsedUrl.pathname.split("/").pop() ?? "Image")
+    )
   } catch {
     return "Image"
   }
 }
 
-function ImageWidget({ value, onChange, field }: WidgetProps) {
+function isUploadedImage(url: string) {
+  try {
+    const marker = `/storage/v1/object/public/${IMAGE_BUCKET}/`
+    const pathname = new URL(url).pathname
+    if (!pathname.startsWith(marker)) return false
+
+    const path = decodeURIComponent(pathname.slice(marker.length))
+    return USER_ID_PATTERN.test(path.split("/")[0])
+  } catch {
+    return false
+  }
+}
+
+function ImageWidget({
+  value,
+  onChange,
+  field,
+  fieldPath,
+  projectId,
+}: WidgetProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const imageUrl = String(value ?? "")
   const [previewUrl, setPreviewUrl] = useState(imageUrl)
@@ -101,22 +129,45 @@ function ImageWidget({ value, onChange, field }: WidgetProps) {
     setState("uploading")
 
     try {
-      const url = await uploadImage(file)
-      onChange(url)
-      setPreviewUrl(url)
+      if (!projectId) throw new Error("Project not found")
+      const formData = new FormData()
+      formData.set("file", file)
+      const result = await uploadProjectImageAction(
+        projectId,
+        fieldPath,
+        formData
+      )
+      if (result.status === "error") throw new Error(result.message)
+
+      onChange(result.url)
+      setPreviewUrl(result.url)
       setState("done")
     } catch (uploadError) {
-      setError(
+      const message =
         uploadError instanceof Error ? uploadError.message : "Upload failed"
-      )
+      setError(message)
       setState("error")
+      toast.error(message)
     } finally {
       URL.revokeObjectURL(localPreview)
       if (inputRef.current) inputRef.current.value = ""
     }
   }
 
+  function handleDelete() {
+    setError("")
+    onChange("")
+    setPreviewUrl("")
+    setFileName("Upload image")
+    setFileSize(null)
+    setFileType("")
+    setState("idle")
+    toast.success("Image removed from draft")
+  }
+
   const hasImage = Boolean(previewUrl)
+  const hasUserImage = isUploadedImage(previewUrl)
+  const isBusy = state === "uploading"
   const description =
     state === "uploading"
       ? `Uploading · ${fileSize ? formatFileSize(fileSize) : ""}`
@@ -135,7 +186,7 @@ function ImageWidget({ value, onChange, field }: WidgetProps) {
         type="file"
         accept="image/png,image/jpeg,image/webp,image/avif"
         className="sr-only"
-        disabled={state === "uploading"}
+        disabled={isBusy || hasUserImage}
         onChange={(event) => {
           const file = event.target.files?.[0]
           if (file) void handleFile(file)
@@ -169,22 +220,14 @@ function ImageWidget({ value, onChange, field }: WidgetProps) {
           <AttachmentDescription>{description}</AttachmentDescription>
         </AttachmentContent>
         <AttachmentActions className="pr-2">
-          {state === "uploading" ? (
+          {isBusy ? (
             <CircleNotchIcon className="size-4 animate-spin" />
           ) : (
-            hasImage && (
+            hasUserImage && (
               <AttachmentAction
                 type="button"
                 aria-label={`Remove ${fileName}`}
-                onClick={() => {
-                  onChange("")
-                  setPreviewUrl("")
-                  setFileName("Upload image")
-                  setFileSize(null)
-                  setFileType("")
-                  setError("")
-                  setState("idle")
-                }}
+                onClick={handleDelete}
               >
                 <TrashIcon />
               </AttachmentAction>
@@ -193,7 +236,12 @@ function ImageWidget({ value, onChange, field }: WidgetProps) {
         </AttachmentActions>
         <AttachmentTrigger
           aria-label={`${hasImage ? "Replace" : "Upload"} ${field.label ?? "image"}`}
-          disabled={state === "uploading"}
+          disabled={isBusy || hasUserImage}
+          title={
+            hasUserImage
+              ? "Delete the existing image before uploading another one"
+              : undefined
+          }
           onClick={() => inputRef.current?.click()}
         />
       </Attachment>

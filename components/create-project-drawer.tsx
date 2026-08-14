@@ -4,7 +4,7 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { createProjectAction } from "@/actions/project"
-import type { Template } from "@/services/template.schema"
+import { useTemplates } from "@/components/templates-provider"
 import {
   initialCreateProjectState,
   type CreateProjectState,
@@ -43,11 +43,10 @@ import { PlusIcon } from "@phosphor-icons/react"
 // createProjectAction server action, which revalidates the projects page.
 export function CreateProjectDrawer({
   buttonVariant = "default",
-  templates = [],
 }: {
   buttonVariant?: "default" | "icon"
-  templates?: Template[]
 }) {
+  const { templates } = useTemplates()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState("")
 

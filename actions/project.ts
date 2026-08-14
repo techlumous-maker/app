@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
+import { VercelApiError } from "@/lib/vercel/api"
+import { deleteProject as deleteVercelProject } from "@/lib/vercel/projects"
 import {
   createProject,
   deleteProject,
@@ -11,6 +13,8 @@ import {
   updateProject,
 } from "@/services/project"
 import { insertProjectSchema } from "@/services/project.schema"
+import { getUserIntegrationByProvider } from "@/services/user-integration"
+import { getVaultSecret } from "@/services/vault-secret"
 import {
   CreateProjectState,
   SelectTemplateState,
@@ -139,6 +143,35 @@ export async function selectTemplateAction(
 export async function deleteProjectAction(
   projectId: string
 ): Promise<DeleteProjectState> {
+  return deleteProjectWithMode(projectId, true)
+}
+
+export async function deleteProjectFromAppAction(
+  projectId: string
+): Promise<DeleteProjectState> {
+  return deleteProjectWithMode(projectId, false)
+}
+
+function clientSafeVercelDeleteError(error: VercelApiError): string {
+  switch (error.status) {
+    case 401:
+    case 403:
+      return "Vercel denied the deletion. Reconnect Vercel or check the token permissions."
+    case 409:
+      return "Vercel cannot delete this project while it is being transferred."
+    case 429:
+      return "Vercel's request limit was reached. Try again shortly."
+    default:
+      return error.status
+        ? `Vercel could not delete the project (${error.status}${error.code ? `, ${error.code}` : ""}).`
+        : "Vercel could not be reached, so the Vercel project may still exist."
+  }
+}
+
+async function deleteProjectWithMode(
+  projectId: string,
+  deleteFromVercel: boolean
+): Promise<DeleteProjectState> {
   const parsed = z.uuid().safeParse(projectId)
   if (!parsed.success) {
     return { status: "error", message: "Invalid project" }
@@ -156,9 +189,61 @@ export async function deleteProjectAction(
   }
 
   try {
+    const project = await getProject(parsed.data)
+    if (!project || project.user_id !== userId) {
+      return { status: "error", message: "Project not found" }
+    }
+
+    if (deleteFromVercel && project.vercel_project_id) {
+      try {
+        const integration = await getUserIntegrationByProvider({
+          validateToken: false,
+        })
+        if (!integration || integration.user_id !== userId) {
+          return {
+            status: "vercel_error",
+            message: "The connected Vercel account is not available.",
+          }
+        }
+
+        const token = await getVaultSecret(integration.token)
+        if (!token) {
+          return {
+            status: "vercel_error",
+            message: "The connected Vercel credential is not available.",
+          }
+        }
+
+        const teamId = integration.credentials?.team_id
+        await deleteVercelProject({
+          token,
+          idOrName: project.vercel_project_id,
+          teamId: typeof teamId === "string" ? teamId : undefined,
+        })
+      } catch (error) {
+        // A missing Vercel project already satisfies the remote deletion.
+        if (!(error instanceof VercelApiError && error.status === 404)) {
+          console.error("Failed to delete Vercel project", error)
+          return {
+            status: "vercel_error",
+            message:
+              error instanceof VercelApiError
+                ? clientSafeVercelDeleteError(error)
+                : "Vercel deletion could not be completed, so the Vercel project may still exist.",
+          }
+        }
+      }
+    }
+
     await deleteProject(parsed.data, userId)
     revalidatePath("/")
-    return { status: "success", message: "Project deleted" }
+    return {
+      status: "success",
+      message:
+        deleteFromVercel && project.vercel_project_id
+          ? "Project deleted from Techlumous and Vercel"
+          : "Project deleted from Techlumous",
+    }
   } catch (err) {
     console.error("Failed to delete project", err)
     return { status: "error", message: "Failed to delete project" }
