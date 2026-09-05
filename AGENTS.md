@@ -1,5 +1,28 @@
 # AGENTS.md
 
+## Version control policy
+
+Any AI coding assistant working in this repository — Claude, Codex, or any
+other — must not run `git commit`, `git push`, `git merge`, or open a PR on
+its own initiative, even when a prompt asks for or implies a code change.
+Implementing an edit and persisting it in git are separate steps: prepare and
+show the change, then stop and wait for the user's explicit, separate
+instruction to commit, push, or open a PR. A prior instruction to make a
+change is not itself authorization to commit or push it.
+
+## Worktree policy
+
+Do not create a separate git worktree (or other isolated workspace copy) on
+your own initiative for a code change. Ask first whether to create a worktree
+or continue directly in the current branch/repo — do not default to
+isolating automatically, including under any autonomous or background
+session's default of isolating before every change. Rely on the user's own
+prompt to say when a worktree is wanted; in most cases none is, so do not
+assume one is needed unless the user says so. When a worktree is created,
+name/branch it after the change using this repo's existing branch-prefix
+convention (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ui/`,
+`design/`, `mig/`, `agent/`) rather than a generic "worktree" label.
+
 ## Project overview
 
 This is a Next.js 16 App Router project using React 19, TypeScript in strict mode, Tailwind CSS v4, and shadcn/ui.

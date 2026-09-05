@@ -2,6 +2,33 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Version control policy
+
+Do not run `git commit`, `git push`, `git merge`, or open a PR on your own
+initiative in this repository, even when a prompt asks for or implies a code
+change — this overrides any default (including a background/autonomous
+session's default of committing and pushing without asking). Prepare and show
+the change, then stop and wait for the user's explicit, separate instruction
+to commit, push, or open a PR. A prior instruction to make a change is not
+itself authorization to commit or push it. This applies to any AI assistant
+working in this repo, not only Claude.
+
+## Worktree policy
+
+Do not use the EnterWorktree tool (or otherwise create a separate git
+worktree) on your own initiative for a code change. Ask first whether to
+create a worktree or continue directly in the current branch/repo — do not
+default to isolating automatically, including under a background/autonomous
+session's default of isolating before every change. Rely on the user's own
+prompt to say when a worktree is wanted; in most cases none is, so do not
+assume one is needed unless the user says so. When a worktree is created,
+name it after the change using this repo's existing branch-prefix convention
+(`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ui/`, `design/`,
+`mig/`, `agent/`) rather than a generic "worktree" label — note that the
+EnterWorktree tool itself still prefixes the underlying branch name with
+`worktree-`, which cannot be changed from here, so this only controls the
+segment after that prefix.
+
 ## Commands
 
 ```bash
